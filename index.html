@@ -12,7 +12,7 @@
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen">
 
-  <!-- SCAN NOTIFICATION TOAST POPUP (ZERO SCAN LATENCY) -->
+  <!-- SCAN NOTIFICATION TOAST POPUP (ZERO SCAN LATENCY - 2.5 SEC POPUP) -->
   <div id="scanToast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 hidden transition-all duration-300 w-11/12 max-w-md">
     <div id="toastContent" class="px-5 py-3.5 rounded-2xl shadow-2xl font-semibold text-xs md:text-sm text-white flex items-center justify-between border">
       <div class="flex items-center space-x-3">
@@ -267,6 +267,7 @@
   </div>
 
   <script>
+    // PRE-CONFIGURED DEFAULT GOOGLE APPS SCRIPT URL
     const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbyOMCXn07Y0kKjg2jg7bpfMAjTT2mVO5T92MzjuGhtYxBku2El2jvtdOReofPNTGUBIYg/exec";
     let API_URL = localStorage.getItem("sheet_api_url") || DEFAULT_API_URL;
     
@@ -387,7 +388,6 @@
         return;
       }
 
-      // Fast Client-side Array Lookups for 100% responsiveness
       const match = studentCourseRoster.find(s => {
         const r = s["Roll No"] || s["rollNo"] || "";
         return r.toString().trim().toLowerCase() === rollInput.toLowerCase();
@@ -431,7 +431,6 @@
       generateQRCode(student);
     }
 
-    // Instant HTML Canvas Rendering
     function generateQRCode(student) {
       const qrBox = document.getElementById("qrcode");
       qrBox.innerHTML = "";
@@ -560,7 +559,6 @@
           return;
         }
 
-        // Prevent duplicate triggering for the exact same frame
         if (roll === lastScannedRoll) return;
         lastScannedRoll = roll;
         setTimeout(() => { lastScannedRoll = ""; }, 1800);
@@ -569,7 +567,7 @@
 
         if (match) {
           match.status = "P";
-          renderRoster(); // Immediate domestic DOM update (<1ms latency)
+          renderRoster();
           showToast("Scan Successful", `Attendance Marked: Present-P | Roll: ${roll} | ${match.name}`, true);
         } else {
           showToast("Scan Unsuccessful", `Roll No ${roll} is Not Registered under ${currentCourse}.`, false);

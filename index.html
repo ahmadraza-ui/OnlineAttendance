@@ -12,6 +12,14 @@
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen">
 
+  <!-- SCAN NOTIFICATION TOAST (1 SEC POPUP) -->
+  <div id="scanToast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 hidden transition-all duration-300">
+    <div id="toastContent" class="px-5 py-3 rounded-xl shadow-2xl font-bold text-sm text-white flex items-center space-x-2 border">
+      <i id="toastIcon" class="fa-solid"></i>
+      <span id="toastMsg">---</span>
+    </div>
+  </div>
+
   <!-- TOP NAV -->
   <header class="bg-indigo-700 text-white shadow-md sticky top-0 z-40">
     <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
@@ -20,7 +28,7 @@
         <h1 class="text-base md:text-xl font-bold tracking-tight">QR Attendance Portal</h1>
       </div>
       <div class="flex items-center space-x-2">
-        <span id="syncBadge" class="text-[10px] md:text-xs bg-indigo-800 px-2 py-1 rounded-full text-indigo-200 whitespace-nowrap">
+        <span id="syncBadge" class="text-[10px] md:text-xs bg-indigo-800 px-2.5 py-1 rounded-full text-indigo-200 whitespace-nowrap">
           <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Checking...
         </span>
         <button onclick="switchView('student')" class="bg-indigo-600 hover:bg-indigo-500 px-2.5 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition">Student</button>
@@ -39,20 +47,17 @@
         </h2>
         <form onsubmit="handleStudentRegister(event)" class="space-y-4">
           
-          <!-- Course Selection First -->
           <div>
             <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Select Your Course</label>
             <select id="regCourse" onchange="fetchStudentCourseData()" required class="w-full px-3 py-2.5 border rounded-lg text-sm bg-indigo-50 font-semibold text-indigo-900 border-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"></select>
           </div>
 
-          <!-- Roll Number Input with Verification -->
           <div>
             <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Enter Roll Number</label>
             <input type="text" id="regRoll" oninput="verifyStudentRollNo()" required placeholder="e.g. 236505" class="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
             <p id="rollError" class="text-xs text-rose-600 font-semibold mt-1.5 hidden"></p>
           </div>
 
-          <!-- Auto-Populated Student Name -->
           <div>
             <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Student Name (Auto Loaded)</label>
             <input type="text" id="regName" readonly placeholder="Name will load automatically..." class="w-full px-3 py-2.5 border rounded-lg text-sm bg-slate-100 text-slate-700 font-semibold cursor-not-allowed">
@@ -64,7 +69,6 @@
         </form>
       </div>
 
-      <!-- Generated QR Card -->
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col items-center justify-center text-center min-h-[280px]">
         <div id="qrDisplay" class="hidden flex flex-col items-center">
           <span class="bg-indigo-100 text-indigo-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">Permanent Attendance Badge</span>
@@ -95,7 +99,6 @@
         </button>
       </div>
 
-      <!-- API CONFIGURATION BAR (ADMIN ONLY) -->
       <div class="bg-amber-50 border-l-4 border-amber-500 p-3 md:p-4 rounded-r-lg shadow-sm">
         <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
           <div>
@@ -130,7 +133,6 @@
             </div>
           </div>
 
-          <!-- Camera Display Box -->
           <div id="readerBox" class="relative bg-slate-900 rounded-lg overflow-hidden min-h-[180px] md:min-h-[220px] flex items-center justify-center text-slate-400">
             <div id="reader" class="w-full"></div>
             <div id="scannerOverlay" class="absolute inset-0 bg-slate-900/80 flex flex-col items-center justify-center p-4 text-center">
@@ -189,18 +191,21 @@
 
       </div>
 
-      <!-- Logs & Excel Export -->
+      <!-- Logs & Excel Export / Automatic Email -->
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 md:p-6">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 pb-2 border-b">
           <h3 class="font-bold text-slate-800 text-sm md:text-base flex items-center">
             <i class="fa-solid fa-database text-amber-600 mr-2"></i> Attendance History Logs
           </h3>
-          <div class="flex gap-2 w-full sm:w-auto">
-            <button onclick="fetchAttendanceLogs()" class="flex-1 sm:flex-initial bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-2 rounded-md transition">
+          <div class="flex flex-wrap gap-2 w-full sm:w-auto">
+            <button onclick="fetchAttendanceLogs()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-2 rounded-md transition">
               <i class="fa-solid fa-rotate mr-1"></i> Refresh
             </button>
-            <button onclick="exportToExcel()" class="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-md transition">
+            <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-md transition">
               <i class="fa-solid fa-file-excel mr-1"></i> Download Excel
+            </button>
+            <button onclick="emailExcelToAhmadRaza()" id="emailBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-2 rounded-md transition flex items-center">
+              <i class="fa-solid fa-paper-plane mr-1"></i> Email Excel (ahmadraza@gift.edu.pk)
             </button>
           </div>
         </div>
@@ -228,7 +233,7 @@
 
   </main>
 
-  <!-- ADMIN AUTH MODAL (CLEANED - NO DEFAULT CREDENTIALS SHOWN) -->
+  <!-- ADMIN AUTH MODAL -->
   <div id="loginModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
     <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
       <div class="text-center">
@@ -256,18 +261,45 @@
   </div>
 
   <script>
+    // AUTOMATICALLY UPDATED ACTIVE WEB APP URL
     const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbyOMCXn07Y0kKjg2jg7bpfMAjTT2mVO5T92MzjuGhtYxBku2El2jvtdOReofPNTGUBIYg/exec";
     let API_URL = localStorage.getItem("sheet_api_url") || DEFAULT_API_URL;
     
-    let studentCourseRoster = []; // Holds loaded course students for verification
-    let activeCourseStudents = [];  // Holds admin loaded roster
+    let studentCourseRoster = [];
+    let activeCourseStudents = [];
     let html5QrcodeScanner = null;
+    let toastTimer = null;
+    let lastScannedRoll = "";
 
     window.addEventListener("DOMContentLoaded", () => {
       document.getElementById("adminDate").value = new Date().toISOString().split("T")[0];
       document.getElementById("apiUrlInput").value = API_URL;
       loadCoursesFromBackend();
     });
+
+    function showToast(msg, isSuccess) {
+      const toast = document.getElementById("scanToast");
+      const content = document.getElementById("toastContent");
+      const icon = document.getElementById("toastIcon");
+      const msgTxt = document.getElementById("toastMsg");
+
+      msgTxt.innerText = msg;
+
+      if (isSuccess) {
+        content.className = "px-5 py-3 rounded-xl shadow-2xl font-bold text-sm text-white flex items-center space-x-2 bg-emerald-600 border-emerald-500";
+        icon.className = "fa-solid fa-circle-check";
+      } else {
+        content.className = "px-5 py-3 rounded-xl shadow-2xl font-bold text-sm text-white flex items-center space-x-2 bg-rose-600 border-rose-500";
+        icon.className = "fa-solid fa-circle-xmark";
+      }
+
+      toast.classList.remove("hidden");
+
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add("hidden");
+      }, 1000);
+    }
 
     function saveApiUrl() {
       const url = document.getElementById("apiUrlInput").value.trim();
@@ -347,7 +379,6 @@
         return;
       }
 
-      // Search student roster for matching Roll No
       const match = studentCourseRoster.find(s => {
         const r = s["Roll No"] || s["rollNo"] || "";
         return r.toString().trim().toLowerCase() === rollInput.toLowerCase();
@@ -427,7 +458,7 @@
             rollNo: s["Roll No"] || s["rollNo"] || "",
             name: s["Name"] || s["name"] || "",
             course: course,
-            status: "A" // Default Absent-A
+            status: "A"
           }));
           renderRoster();
         }
@@ -479,7 +510,7 @@
       document.getElementById("aCount").innerText = activeCourseStudents.length - p;
     }
 
-    // --- CAMERA SCANNING ---
+    // --- CAMERA SCANNING ENGINE WITH 1-SEC POPUPS ---
     function toggleCam(start) {
       const overlay = document.getElementById("scannerOverlay");
       const startBtn = document.getElementById("startCamBtn");
@@ -511,14 +542,31 @@
     function onScanSuccess(decodedText) {
       try {
         const payload = JSON.parse(decodedText);
-        if (payload.rollNo) {
-          const match = activeCourseStudents.find(s => s.rollNo.toString().trim() === payload.rollNo.toString().trim());
-          if (match) {
-            match.status = "P";
-            renderRoster();
-          }
+        const roll = payload.rollNo ? payload.rollNo.toString().trim() : "";
+        const currentCourse = document.getElementById("adminCourseSelect").value;
+
+        if (!roll) {
+          showToast("Unsuccessful: Invalid QR Code", false);
+          return;
         }
-      } catch (e) {}
+
+        if (roll === lastScannedRoll) return;
+        lastScannedRoll = roll;
+        setTimeout(() => { lastScannedRoll = ""; }, 2000);
+
+        const match = activeCourseStudents.find(s => s.rollNo.toString().trim() === roll);
+
+        if (match) {
+          match.status = "P";
+          renderRoster();
+          showToast(`Present-P Marked for ${match.name} (${roll})`, true);
+        } else {
+          showToast(`Unsuccessful: Roll No ${roll} Not Registered in ${currentCourse}`, false);
+        }
+
+      } catch (e) {
+        showToast("Unsuccessful: Unrecognized QR Data Format", false);
+      }
     }
 
     // --- SAVE TO "ATTENDANCE RECORD" SHEET ---
@@ -547,6 +595,46 @@
         }
       } catch (err) {
         alert("Failed to save attendance.");
+      }
+    }
+
+    // --- EMAIL EXCEL FILE AUTOMATICALLY TO AHMAD RAZA ---
+    async function emailExcelToAhmadRaza() {
+      if (!API_URL) return alert("API URL missing!");
+
+      const table = document.getElementById("exportTable");
+      const course = document.getElementById("adminCourseSelect").value || "All Courses";
+      const date = document.getElementById("adminDate").value || new Date().toISOString().split("T")[0];
+
+      const wb = XLSX.utils.table_to_book(table, { sheet: "Attendance Record" });
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+
+      const emailBtn = document.getElementById("emailBtn");
+      emailBtn.disabled = true;
+      emailBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Sending Email...';
+
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            action: "emailAttendanceExcel",
+            course: course,
+            date: date,
+            excelBase64: wbout
+          })
+        });
+
+        const data = await res.json();
+        if (data.status === "success") {
+          alert(`Attendance Excel File sent successfully to ahmadraza@gift.edu.pk!\n\nSubject: Attendance Report - ${course} (${date})`);
+        } else {
+          alert("Email Error: " + data.message);
+        }
+      } catch (err) {
+        alert("Failed to send email. Ensure Google Apps Script permissions are granted.");
+      } finally {
+        emailBtn.disabled = false;
+        emailBtn.innerHTML = '<i class="fa-solid fa-paper-plane mr-1"></i> Email Excel (ahmadraza@gift.edu.pk)';
       }
     }
 

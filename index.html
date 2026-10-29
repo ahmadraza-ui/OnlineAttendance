@@ -13,87 +13,71 @@
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen">
 
   <!-- TOP NAV -->
-  <header class="bg-indigo-700 text-white shadow-md">
+  <header class="bg-indigo-700 text-white shadow-md sticky top-0 z-40">
     <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-      <div class="flex items-center space-x-3">
-        <i class="fa-solid fa-file-excel text-2xl text-emerald-400"></i>
-        <h1 class="text-xl font-bold">Google Sheets QR Attendance</h1>
+      <div class="flex items-center space-x-2 md:space-x-3">
+        <i class="fa-solid fa-file-excel text-xl md:text-2xl text-emerald-400"></i>
+        <h1 class="text-base md:text-xl font-bold tracking-tight">QR Attendance Portal</h1>
       </div>
-      <div class="flex items-center space-x-3">
-        <span id="syncBadge" class="text-xs bg-indigo-800 px-2.5 py-1 rounded-full text-indigo-200">
-          <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Connecting API...
+      <div class="flex items-center space-x-2">
+        <span id="syncBadge" class="text-[10px] md:text-xs bg-indigo-800 px-2 py-1 rounded-full text-indigo-200 whitespace-nowrap">
+          <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Checking...
         </span>
-        <button onclick="switchView('student')" class="bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg text-sm font-semibold transition">Student Portal</button>
-        <button onclick="openAdminModal()" class="bg-amber-500 hover:bg-amber-400 text-slate-900 px-3 py-1.5 rounded-lg text-sm font-semibold transition">Admin Panel</button>
+        <button onclick="switchView('student')" class="bg-indigo-600 hover:bg-indigo-500 px-2.5 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition">Student</button>
+        <button onclick="openAdminModal()" class="bg-amber-500 hover:bg-amber-400 text-slate-900 px-2.5 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition">Admin</button>
       </div>
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-
-    <!-- API CONFIG BAR -->
-    <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg shadow-sm">
-      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-        <div>
-          <h3 class="font-bold text-amber-900"><i class="fa-solid fa-plug mr-2"></i>Google Sheets API Connected</h3>
-          <p class="text-xs text-amber-700">Pre-configured with your active Google Apps Script Web App Endpoint.</p>
-        </div>
-        <div class="flex w-full md:w-auto gap-2">
-          <input type="text" id="apiUrlInput" class="w-full md:w-80 text-xs px-3 py-2 border rounded-md focus:outline-none">
-          <button onclick="saveApiUrl()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-4 py-2 rounded-md transition whitespace-nowrap">Update API</button>
-        </div>
-      </div>
-    </div>
+  <main class="max-w-7xl mx-auto p-3 md:p-6 space-y-6">
 
     <!-- STUDENT PORTAL -->
     <section id="studentView" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="bg-white rounded-xl shadow-sm border p-6">
-        <h2 class="text-lg font-bold mb-4 pb-2 border-b text-slate-800">
-          <i class="fa-solid fa-user-plus text-indigo-600 mr-2"></i> Student Registration
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 md:p-6">
+        <h2 class="text-base md:text-lg font-bold mb-4 pb-2 border-b text-slate-800 flex items-center">
+          <i class="fa-solid fa-qrcode text-indigo-600 mr-2"></i> Get Attendance QR Code
         </h2>
         <form onsubmit="handleStudentRegister(event)" class="space-y-4">
+          
+          <!-- Course Selection First -->
           <div>
-            <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Roll Number</label>
-            <input type="text" id="regRoll" required placeholder="e.g. 236505" class="w-full px-3 py-2 border rounded-lg text-sm">
+            <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Select Your Course</label>
+            <select id="regCourse" onchange="fetchStudentCourseData()" required class="w-full px-3 py-2.5 border rounded-lg text-sm bg-indigo-50 font-semibold text-indigo-900 border-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"></select>
           </div>
+
+          <!-- Roll Number Input with Verification -->
           <div>
-            <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Full Name</label>
-            <input type="text" id="regName" required placeholder="e.g. Ahmad Raza" class="w-full px-3 py-2 border rounded-lg text-sm">
+            <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Enter Roll Number</label>
+            <input type="text" id="regRoll" oninput="verifyStudentRollNo()" required placeholder="e.g. 236505" class="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <p id="rollError" class="text-xs text-rose-600 font-semibold mt-1.5 hidden"></p>
           </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Course Sheet</label>
-              <select id="regCourse" required class="w-full px-3 py-2 border rounded-lg text-sm"></select>
-            </div>
-            <div>
-              <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Section</label>
-              <select id="regSection" required class="w-full px-3 py-2 border rounded-lg text-sm">
-                <option value="A">Section A</option>
-                <option value="B">Section B</option>
-                <option value="C">Section C</option>
-              </select>
-            </div>
+
+          <!-- Auto-Populated Student Name -->
+          <div>
+            <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Student Name (Auto Loaded)</label>
+            <input type="text" id="regName" readonly placeholder="Name will load automatically..." class="w-full px-3 py-2.5 border rounded-lg text-sm bg-slate-100 text-slate-700 font-semibold cursor-not-allowed">
           </div>
-          <button type="submit" id="regBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-sm transition">
-            Register to Sheet & Generate QR
+
+          <button type="submit" id="regBtn" disabled class="w-full bg-slate-300 text-slate-500 font-semibold py-2.5 rounded-lg text-sm transition cursor-not-allowed">
+            Generate QR Code
           </button>
         </form>
       </div>
 
       <!-- Generated QR Card -->
-      <div class="bg-white rounded-xl shadow-sm border p-6 flex flex-col items-center justify-center text-center">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col items-center justify-center text-center min-h-[280px]">
         <div id="qrDisplay" class="hidden flex flex-col items-center">
           <span class="bg-indigo-100 text-indigo-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">Permanent Attendance Badge</span>
-          <div id="qrcode" class="p-3 border-2 border-slate-200 rounded-xl mb-4 bg-white shadow-inner"></div>
-          <h3 id="qrName" class="font-bold text-slate-800 text-lg">---</h3>
+          <div id="qrcode" class="p-3 border-2 border-slate-200 rounded-xl mb-3 bg-white shadow-inner"></div>
+          <h3 id="qrName" class="font-bold text-slate-800 text-base md:text-lg">---</h3>
           <p id="qrMeta" class="text-xs text-slate-500 mb-4">Roll: ---</p>
-          <button onclick="downloadQR()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-4 py-2 rounded-lg transition">
-            <i class="fa-solid fa-download mr-1"></i> Save Image
+          <button onclick="downloadQR()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-4 py-2 rounded-lg transition flex items-center">
+            <i class="fa-solid fa-download mr-1.5"></i> Save Image
           </button>
         </div>
-        <div id="qrPlaceholder" class="text-slate-400 py-12">
-          <i class="fa-solid fa-qrcode text-6xl mb-3 text-slate-300"></i>
-          <p class="text-sm">Register above to generate your permanent QR code.</p>
+        <div id="qrPlaceholder" class="text-slate-400 py-8">
+          <i class="fa-solid fa-qrcode text-5xl md:text-6xl mb-3 text-slate-300"></i>
+          <p class="text-xs md:text-sm max-w-xs">Select course and enter registered Roll Number above to generate your QR Code.</p>
         </div>
       </div>
     </section>
@@ -101,74 +85,84 @@
     <!-- ADMIN PANEL -->
     <section id="adminView" class="hidden space-y-6">
       
-      <div class="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center">
-        <div class="flex items-center space-x-3">
-          <span class="bg-amber-100 text-amber-800 font-bold px-3 py-1 rounded-lg text-xs">Admin ID: 236505</span>
-          <h2 class="font-bold text-slate-800">Admin Dashboard</h2>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
+        <div class="flex items-center space-x-2 md:space-x-3">
+          <span class="bg-amber-100 text-amber-800 font-bold px-2.5 py-1 rounded-lg text-xs">Admin</span>
+          <h2 class="font-bold text-slate-800 text-sm md:text-base">Admin Dashboard</h2>
         </div>
-        <button onclick="switchView('student')" class="text-xs text-red-600 hover:text-red-800 font-semibold">
-          <i class="fa-solid fa-right-from-bracket mr-1"></i> Exit Admin
+        <button onclick="switchView('student')" class="text-xs text-red-600 hover:text-red-800 font-semibold flex items-center">
+          <i class="fa-solid fa-right-from-bracket mr-1"></i> Exit
         </button>
+      </div>
+
+      <!-- API CONFIGURATION BAR (ADMIN ONLY) -->
+      <div class="bg-amber-50 border-l-4 border-amber-500 p-3 md:p-4 rounded-r-lg shadow-sm">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          <div>
+            <h3 class="font-bold text-xs md:text-sm text-amber-900 flex items-center">
+              <i class="fa-solid fa-plug mr-1.5"></i> Google Sheets API Configuration
+            </h3>
+            <p class="text-[11px] md:text-xs text-amber-700">Update your Google Apps Script Web App URL endpoint below.</p>
+          </div>
+          <div class="flex w-full md:w-auto gap-2">
+            <input type="text" id="apiUrlInput" class="w-full md:w-80 text-xs px-3 py-2 border rounded-md focus:outline-none bg-white">
+            <button onclick="saveApiUrl()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3.5 py-2 rounded-md transition whitespace-nowrap">Update API</button>
+          </div>
+        </div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         <!-- Controls & Camera -->
-        <div class="bg-white rounded-xl shadow-sm border p-6 lg:col-span-1 space-y-4">
-          <h3 class="font-bold text-slate-800 pb-2 border-b"><i class="fa-solid fa-camera text-indigo-600 mr-2"></i>Select Course & Scan</h3>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 md:p-6 lg:col-span-1 space-y-4">
+          <h3 class="font-bold text-slate-800 text-sm md:text-base pb-2 border-b flex items-center">
+            <i class="fa-solid fa-camera text-indigo-600 mr-2"></i> Camera Scanner
+          </h3>
           
           <div class="space-y-3">
             <div>
               <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Select Course Sheet</label>
-              <select id="adminCourseSelect" onchange="loadCourseRosterFromSheet()" class="w-full px-3 py-2 border rounded-lg text-sm bg-indigo-50 font-semibold text-indigo-900"></select>
+              <select id="adminCourseSelect" onchange="loadCourseRosterFromSheet()" class="w-full px-3 py-2 border rounded-lg text-xs md:text-sm bg-indigo-50 font-semibold text-indigo-900 border-indigo-200 focus:outline-none"></select>
             </div>
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Section</label>
-                <select id="adminSectionSelect" class="w-full px-3 py-2 border rounded-lg text-sm">
-                  <option value="A">Section A</option>
-                  <option value="B">Section B</option>
-                  <option value="C">Section C</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Date</label>
-                <input type="date" id="adminDate" class="w-full px-3 py-2 border rounded-lg text-sm">
-              </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Attendance Date</label>
+              <input type="date" id="adminDate" class="w-full px-3 py-2 border rounded-lg text-xs md:text-sm focus:outline-none">
             </div>
           </div>
 
           <!-- Camera Display Box -->
-          <div id="readerBox" class="relative bg-slate-900 rounded-lg overflow-hidden min-h-[200px] flex items-center justify-center text-slate-400">
+          <div id="readerBox" class="relative bg-slate-900 rounded-lg overflow-hidden min-h-[180px] md:min-h-[220px] flex items-center justify-center text-slate-400">
             <div id="reader" class="w-full"></div>
             <div id="scannerOverlay" class="absolute inset-0 bg-slate-900/80 flex flex-col items-center justify-center p-4 text-center">
-              <i class="fa-solid fa-video-slash text-3xl mb-2 text-slate-500"></i>
-              <p class="text-xs">Start camera to begin scanning student QR codes.</p>
+              <i class="fa-solid fa-video-slash text-2xl md:text-3xl mb-2 text-slate-500"></i>
+              <p class="text-xs">Start camera to scan student QR codes.</p>
             </div>
           </div>
 
           <div class="space-y-2">
-            <button id="startCamBtn" onclick="toggleCam(true)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg text-sm transition">
-              <i class="fa-solid fa-video mr-1"></i> Start Camera Scan
+            <button id="startCamBtn" onclick="toggleCam(true)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg text-xs md:text-sm transition flex items-center justify-center">
+              <i class="fa-solid fa-video mr-1.5"></i> Start Camera Scan
             </button>
-            <button id="stopCamBtn" onclick="toggleCam(false)" class="hidden w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2 rounded-lg text-sm transition">
-              <i class="fa-solid fa-video-slash mr-1"></i> Stop Camera
+            <button id="stopCamBtn" onclick="toggleCam(false)" class="hidden w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2 rounded-lg text-xs md:text-sm transition flex items-center justify-center">
+              <i class="fa-solid fa-video-slash mr-1.5"></i> Stop Camera
             </button>
           </div>
         </div>
 
         <!-- Loaded Roster -->
-        <div class="bg-white rounded-xl shadow-sm border p-6 lg:col-span-2 flex flex-col justify-between">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 md:p-6 lg:col-span-2 flex flex-col justify-between">
           <div>
             <div class="flex justify-between items-center mb-4 pb-2 border-b">
-              <h3 class="font-bold text-slate-800"><i class="fa-solid fa-users text-indigo-600 mr-2"></i>Course Registered Roster</h3>
-              <div class="text-xs font-semibold space-x-2">
-                <span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded">Present-P: <b id="pCount">0</b></span>
-                <span class="bg-rose-100 text-rose-800 px-2.5 py-1 rounded">Absent-A: <b id="aCount">0</b></span>
+              <h3 class="font-bold text-slate-800 text-sm md:text-base flex items-center">
+                <i class="fa-solid fa-users text-indigo-600 mr-2"></i> Registered Roster
+              </h3>
+              <div class="text-[11px] md:text-xs font-semibold space-x-1.5">
+                <span class="bg-emerald-100 text-emerald-800 px-2 py-1 rounded">Present: <b id="pCount">0</b></span>
+                <span class="bg-rose-100 text-rose-800 px-2 py-1 rounded">Absent: <b id="aCount">0</b></span>
               </div>
             </div>
 
-            <div class="overflow-x-auto max-h-[300px] border rounded-lg">
+            <div class="overflow-x-auto max-h-[280px] md:max-h-[320px] border rounded-lg">
               <table class="w-full text-left text-xs">
                 <thead class="bg-slate-50 border-b uppercase sticky top-0 text-slate-600">
                   <tr>
@@ -187,7 +181,7 @@
           </div>
 
           <div class="pt-4 border-t mt-4 flex justify-end">
-            <button onclick="saveAttendanceToSheet()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition flex items-center shadow-sm">
+            <button onclick="saveAttendanceToSheet()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2.5 rounded-lg text-xs md:text-sm transition flex items-center justify-center shadow-sm">
               <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Save to "Attendance Record" Sheet
             </button>
           </div>
@@ -196,34 +190,35 @@
       </div>
 
       <!-- Logs & Excel Export -->
-      <div class="bg-white rounded-xl shadow-sm border p-6">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4 pb-2 border-b">
-          <h3 class="font-bold text-slate-800"><i class="fa-solid fa-database text-amber-600 mr-2"></i>"Attendance Record" Sheet Logs</h3>
-          <div class="flex gap-2">
-            <button onclick="fetchAttendanceLogs()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-2 rounded-md transition">
-              <i class="fa-solid fa-rotate mr-1"></i> Refresh Logs
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 md:p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 pb-2 border-b">
+          <h3 class="font-bold text-slate-800 text-sm md:text-base flex items-center">
+            <i class="fa-solid fa-database text-amber-600 mr-2"></i> Attendance History Logs
+          </h3>
+          <div class="flex gap-2 w-full sm:w-auto">
+            <button onclick="fetchAttendanceLogs()" class="flex-1 sm:flex-initial bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-2 rounded-md transition">
+              <i class="fa-solid fa-rotate mr-1"></i> Refresh
             </button>
-            <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-md transition">
-              <i class="fa-solid fa-file-excel mr-1"></i> Export Excel (.xlsx)
+            <button onclick="exportToExcel()" class="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-md transition">
+              <i class="fa-solid fa-file-excel mr-1"></i> Download Excel
             </button>
           </div>
         </div>
 
-        <div class="overflow-x-auto max-h-[350px] border rounded-lg">
+        <div class="overflow-x-auto max-h-[300px] md:max-h-[350px] border rounded-lg">
           <table id="exportTable" class="w-full text-left text-xs">
             <thead class="bg-slate-50 border-b uppercase sticky top-0 text-slate-600">
               <tr>
                 <th class="p-2.5">Roll No</th>
                 <th class="p-2.5">Name</th>
                 <th class="p-2.5">Course</th>
-                <th class="p-2.5">Section</th>
                 <th class="p-2.5">Date</th>
                 <th class="p-2.5">Time</th>
                 <th class="p-2.5">Attendance Status</th>
               </tr>
             </thead>
             <tbody id="logsBody" class="divide-y divide-slate-100">
-              <tr><td colspan="7" class="p-4 text-center text-slate-400">Click Refresh Logs to view saved history.</td></tr>
+              <tr><td colspan="6" class="p-4 text-center text-slate-400">Click Refresh Logs to view saved history.</td></tr>
             </tbody>
           </table>
         </div>
@@ -233,36 +228,39 @@
 
   </main>
 
-  <!-- ADMIN AUTH MODAL -->
+  <!-- ADMIN AUTH MODAL (CLEANED - NO DEFAULT CREDENTIALS SHOWN) -->
   <div id="loginModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
     <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
       <div class="text-center">
         <div class="bg-amber-100 text-amber-600 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2 text-xl">
           <i class="fa-solid fa-lock"></i>
         </div>
-        <h3 class="font-bold text-slate-800 text-lg">Admin Authentication</h3>
-        <p class="text-xs text-slate-500">Default Credentials: 236505 / AhmadRaza23</p>
+        <h3 class="font-bold text-slate-800 text-lg">Admin Access Login</h3>
+        <p class="text-xs text-slate-500">Please enter your authorization credentials.</p>
       </div>
       <form onsubmit="handleAdminLogin(event)" class="space-y-3">
         <div>
           <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">User ID</label>
-          <input type="text" id="adminUser" required placeholder="236505" class="w-full px-3 py-2 border rounded-lg text-sm">
+          <input type="text" id="adminUser" required placeholder="Enter User ID" class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
         </div>
         <div>
           <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Password</label>
-          <input type="password" id="adminPass" required placeholder="AhmadRaza23" class="w-full px-3 py-2 border rounded-lg text-sm">
+          <input type="password" id="adminPass" required placeholder="Enter Password" class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
         </div>
-        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-sm transition">Login</button>
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-sm transition">
+          Login to Dashboard
+        </button>
       </form>
       <button onclick="closeAdminModal()" class="w-full text-xs text-slate-400 hover:text-slate-600">Cancel</button>
     </div>
   </div>
 
   <script>
-    // PRE-CONFIGURED DEFAULT GOOGLE APPS SCRIPT URL
     const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbyOMCXn07Y0kKjg2jg7bpfMAjTT2mVO5T92MzjuGhtYxBku2El2jvtdOReofPNTGUBIYg/exec";
     let API_URL = localStorage.getItem("sheet_api_url") || DEFAULT_API_URL;
-    let activeCourseStudents = [];
+    
+    let studentCourseRoster = []; // Holds loaded course students for verification
+    let activeCourseStudents = [];  // Holds admin loaded roster
     let html5QrcodeScanner = null;
 
     window.addEventListener("DOMContentLoaded", () => {
@@ -281,13 +279,13 @@
 
     function updateBadge(text, classes) {
       const badge = document.getElementById("syncBadge");
-      badge.className = `text-xs px-2.5 py-1 rounded-full ${classes}`;
+      badge.className = `text-[10px] md:text-xs px-2.5 py-1 rounded-full ${classes}`;
       badge.innerHTML = text;
     }
 
     async function loadCoursesFromBackend() {
       if (!API_URL) return;
-      updateBadge('<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Syncing Sheets...', 'bg-indigo-800 text-indigo-200');
+      updateBadge('<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Syncing...', 'bg-indigo-800 text-indigo-200');
       try {
         const res = await fetch(`${API_URL}?action=getCourseData`);
         const data = await res.json();
@@ -303,53 +301,103 @@
             adminCourse.innerHTML += `<option value="${c}">${c}</option>`;
           });
 
+          fetchStudentCourseData();
           loadCourseRosterFromSheet();
-          updateBadge('<i class="fa-solid fa-check mr-1"></i> Sheets Connected', 'bg-emerald-800 text-emerald-100');
+          updateBadge('<i class="fa-solid fa-check mr-1"></i> Connected', 'bg-emerald-800 text-emerald-100');
         }
       } catch (e) {
         console.error("Fetch Courses Error:", e);
-        updateBadge('<i class="fa-solid fa-triangle-exclamation mr-1"></i> Connection Error', 'bg-rose-800 text-rose-100');
+        updateBadge('<i class="fa-solid fa-triangle-exclamation mr-1"></i> API Error', 'bg-rose-800 text-rose-100');
       }
     }
 
-    // --- STUDENT REGISTRATION ---
-    async function handleStudentRegister(e) {
+    // --- STUDENT VERIFICATION ENGINE ---
+    async function fetchStudentCourseData() {
+      const course = document.getElementById("regCourse").value;
+      if (!course || !API_URL) return;
+
+      document.getElementById("regName").value = "Loading course data...";
+      document.getElementById("regRoll").value = "";
+      document.getElementById("rollError").classList.add("hidden");
+      disableRegButton();
+
+      try {
+        const res = await fetch(`${API_URL}?action=getCourseData&course=${course}`);
+        const data = await res.json();
+        if (data.status === "success") {
+          studentCourseRoster = data.students || [];
+          document.getElementById("regName").value = "Enter Roll No above";
+        }
+      } catch (err) {
+        console.error("Error fetching course data:", err);
+        document.getElementById("regName").value = "Error loading course";
+      }
+    }
+
+    function verifyStudentRollNo() {
+      const rollInput = document.getElementById("regRoll").value.trim();
+      const nameInput = document.getElementById("regName");
+      const errBox = document.getElementById("rollError");
+      const currentCourse = document.getElementById("regCourse").value;
+
+      if (!rollInput) {
+        nameInput.value = "Enter Roll No above";
+        errBox.classList.add("hidden");
+        disableRegButton();
+        return;
+      }
+
+      // Search student roster for matching Roll No
+      const match = studentCourseRoster.find(s => {
+        const r = s["Roll No"] || s["rollNo"] || "";
+        return r.toString().trim().toLowerCase() === rollInput.toLowerCase();
+      });
+
+      if (match) {
+        const studentName = match["Name"] || match["name"] || "";
+        nameInput.value = studentName;
+        errBox.classList.add("hidden");
+        enableRegButton();
+      } else {
+        nameInput.value = "Not Found";
+        errBox.innerText = `Entered Roll No is not registered under ${currentCourse}. Please enter a registered Roll Number.`;
+        errBox.classList.remove("hidden");
+        disableRegButton();
+      }
+    }
+
+    function enableRegButton() {
+      const btn = document.getElementById("regBtn");
+      btn.disabled = false;
+      btn.className = "w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-sm transition cursor-pointer shadow-sm";
+    }
+
+    function disableRegButton() {
+      const btn = document.getElementById("regBtn");
+      btn.disabled = true;
+      btn.className = "w-full bg-slate-300 text-slate-500 font-semibold py-2.5 rounded-lg text-sm transition cursor-not-allowed";
+    }
+
+    function handleStudentRegister(e) {
       e.preventDefault();
       const student = {
         rollNo: document.getElementById("regRoll").value.trim(),
         name: document.getElementById("regName").value.trim(),
-        course: document.getElementById("regCourse").value,
-        section: document.getElementById("regSection").value
+        course: document.getElementById("regCourse").value
       };
 
-      const btn = document.getElementById("regBtn");
-      btn.disabled = true;
-      btn.innerText = "Registering to Sheet...";
-
-      if (API_URL) {
-        try {
-          await fetch(API_URL, {
-            method: "POST",
-            body: JSON.stringify({ action: "registerStudent", student: student })
-          });
-        } catch (err) {
-          console.error("Save to sheet error:", err);
-        }
-      }
+      if (!student.rollNo || !student.name || student.name === "Not Found") return;
 
       generateQRCode(student);
-      alert(`Student registered successfully into course sheet [${student.course}]!`);
-      btn.disabled = false;
-      btn.innerText = "Register to Sheet & Generate QR";
     }
 
     function generateQRCode(student) {
       const qrBox = document.getElementById("qrcode");
       qrBox.innerHTML = "";
-      new QRCode(qrBox, { text: JSON.stringify(student), width: 150, height: 150 });
+      new QRCode(qrBox, { text: JSON.stringify(student), width: 140, height: 140 });
 
       document.getElementById("qrName").innerText = student.name;
-      document.getElementById("qrMeta").innerText = `Roll: ${student.rollNo} | ${student.course} (${student.section})`;
+      document.getElementById("qrMeta").innerText = `Roll: ${student.rollNo} | ${student.course}`;
       document.getElementById("qrPlaceholder").classList.add("hidden");
       document.getElementById("qrDisplay").classList.remove("hidden");
     }
@@ -363,7 +411,7 @@
       a.click();
     }
 
-    // --- ROSTER LOADING FROM COURSE SHEET ---
+    // --- ADMIN PANEL & ROSTER LOADING ---
     async function loadCourseRosterFromSheet() {
       const course = document.getElementById("adminCourseSelect").value;
       if (!course || !API_URL) return;
@@ -407,12 +455,12 @@
             <td class="p-2.5">${s.name}</td>
             <td class="p-2.5">${s.course}</td>
             <td class="p-2.5">
-              <span class="px-2 py-0.5 rounded text-xs font-bold ${isP ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
+              <span class="px-2 py-0.5 rounded text-[11px] font-bold ${isP ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
                 ${isP ? 'Present-P' : 'Absent-A'}
               </span>
             </td>
             <td class="p-2.5 text-right">
-              <button onclick="toggleStatus(${idx})" class="px-2.5 py-1 bg-slate-200 hover:bg-slate-300 rounded text-xs font-semibold">Toggle</button>
+              <button onclick="toggleStatus(${idx})" class="px-2 py-1 bg-slate-200 hover:bg-slate-300 rounded text-xs font-semibold">Toggle</button>
             </td>
           </tr>
         `;
@@ -445,7 +493,7 @@
         html5QrcodeScanner = new Html5Qrcode("reader");
         html5QrcodeScanner.start(
           { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 220, height: 220 } },
+          { fps: 10, qrbox: { width: 200, height: 200 } },
           onScanSuccess
         );
       } else {
@@ -480,7 +528,7 @@
 
       const payload = {
         course: document.getElementById("adminCourseSelect").value,
-        section: document.getElementById("adminSectionSelect").value,
+        section: "N/A",
         date: document.getElementById("adminDate").value,
         records: activeCourseStudents.map(s => ({ rollNo: s.rollNo, name: s.name, status: s.status }))
       };
@@ -506,7 +554,7 @@
     async function fetchAttendanceLogs() {
       if (!API_URL) return;
       const tbody = document.getElementById("logsBody");
-      tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Loading history...</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Loading history...</td></tr>`;
 
       try {
         const res = await fetch(`${API_URL}?action=getAttendanceLogs`);
@@ -514,7 +562,7 @@
         if (data.status === "success") {
           tbody.innerHTML = "";
           if (!data.logs || !data.logs.length) {
-            tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">No attendance logs found in Google Sheets.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">No attendance logs found in Google Sheets.</td></tr>`;
             return;
           }
           data.logs.reverse().forEach(log => {
@@ -523,7 +571,6 @@
                 <td class="p-2.5 font-bold">${log["Roll No"] || ''}</td>
                 <td class="p-2.5">${log["Name"] || ''}</td>
                 <td class="p-2.5">${log["Course"] || ''}</td>
-                <td class="p-2.5">${log["Section"] || ''}</td>
                 <td class="p-2.5">${log["Date"] || ''}</td>
                 <td class="p-2.5">${log["Time"] || ''}</td>
                 <td class="p-2.5 font-bold ${log["Attendance Status"] === 'Present-P' ? 'text-emerald-600' : 'text-rose-600'}">

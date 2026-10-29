@@ -3,16 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Firebase QR Attendance Portal</title>
+  <title>Google Sheets QR Attendance Portal</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-  <!-- FIREBASE CDN SDKs (v10 Compat Mode for Direct Browser Execution) -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen">
 
@@ -20,12 +16,12 @@
   <header class="bg-indigo-700 text-white shadow-md">
     <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
       <div class="flex items-center space-x-3">
-        <i class="fa-solid fa-fire text-2xl text-amber-400"></i>
-        <h1 class="text-xl font-bold">QR Attendance (Project: qr-attendance-ap)</h1>
+        <i class="fa-solid fa-file-excel text-2xl text-emerald-400"></i>
+        <h1 class="text-xl font-bold">Google Sheets QR Attendance</h1>
       </div>
       <div class="flex items-center space-x-3">
-        <span id="dbStatus" class="text-xs bg-indigo-800 px-2.5 py-1 rounded-full text-indigo-200">
-          <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Connecting Firebase...
+        <span id="syncBadge" class="text-xs bg-indigo-800 px-2.5 py-1 rounded-full text-indigo-200">
+          <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Connecting API...
         </span>
         <button onclick="switchView('student')" class="bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg text-sm font-semibold transition">Student Portal</button>
         <button onclick="openAdminModal()" class="bg-amber-500 hover:bg-amber-400 text-slate-900 px-3 py-1.5 rounded-lg text-sm font-semibold transition">Admin Panel</button>
@@ -34,6 +30,20 @@
   </header>
 
   <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+
+    <!-- API CONFIG BAR -->
+    <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg shadow-sm">
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        <div>
+          <h3 class="font-bold text-amber-900"><i class="fa-solid fa-plug mr-2"></i>Google Sheets API Connected</h3>
+          <p class="text-xs text-amber-700">Pre-configured with your active Google Apps Script Web App Endpoint.</p>
+        </div>
+        <div class="flex w-full md:w-auto gap-2">
+          <input type="text" id="apiUrlInput" class="w-full md:w-80 text-xs px-3 py-2 border rounded-md focus:outline-none">
+          <button onclick="saveApiUrl()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-4 py-2 rounded-md transition whitespace-nowrap">Update API</button>
+        </div>
+      </div>
+    </div>
 
     <!-- STUDENT PORTAL -->
     <section id="studentView" class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -53,12 +63,7 @@
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Course Sheet</label>
-              <select id="regCourse" required class="w-full px-3 py-2 border rounded-lg text-sm">
-                <option value="CS101">CS101 - Computer Science</option>
-                <option value="EE201">EE201 - Electrical Eng</option>
-                <option value="SE301">SE301 - Software Eng</option>
-                <option value="ME401">ME401 - Mechanical Eng</option>
-              </select>
+              <select id="regCourse" required class="w-full px-3 py-2 border rounded-lg text-sm"></select>
             </div>
             <div>
               <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Section</label>
@@ -70,7 +75,7 @@
             </div>
           </div>
           <button type="submit" id="regBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-sm transition">
-            Register to Firestore & Generate QR
+            Register to Sheet & Generate QR
           </button>
         </form>
       </div>
@@ -83,12 +88,12 @@
           <h3 id="qrName" class="font-bold text-slate-800 text-lg">---</h3>
           <p id="qrMeta" class="text-xs text-slate-500 mb-4">Roll: ---</p>
           <button onclick="downloadQR()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-4 py-2 rounded-lg transition">
-            <i class="fa-solid fa-download mr-1"></i> Download QR Image
+            <i class="fa-solid fa-download mr-1"></i> Save Image
           </button>
         </div>
         <div id="qrPlaceholder" class="text-slate-400 py-12">
           <i class="fa-solid fa-qrcode text-6xl mb-3 text-slate-300"></i>
-          <p class="text-sm">Register to save your student record and generate your QR Code.</p>
+          <p class="text-sm">Register above to generate your permanent QR code.</p>
         </div>
       </div>
     </section>
@@ -114,19 +119,13 @@
           
           <div class="space-y-3">
             <div>
-              <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Course Sheet</label>
-              <select id="adminCourseSelect" onchange="loadCourseRosterFromFirebase()" class="w-full px-3 py-2 border rounded-lg text-sm bg-indigo-50 font-semibold text-indigo-900">
-                <option value="CS101">CS101 - Computer Science</option>
-                <option value="EE201">EE201 - Electrical Eng</option>
-                <option value="SE301">SE301 - Software Eng</option>
-                <option value="ME401">ME401 - Mechanical Eng</option>
-              </select>
+              <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Select Course Sheet</label>
+              <select id="adminCourseSelect" onchange="loadCourseRosterFromSheet()" class="w-full px-3 py-2 border rounded-lg text-sm bg-indigo-50 font-semibold text-indigo-900"></select>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Section</label>
-                <select id="adminSectionSelect" onchange="filterLocalRoster()" class="w-full px-3 py-2 border rounded-lg text-sm">
-                  <option value="All">All Sections</option>
+                <select id="adminSectionSelect" class="w-full px-3 py-2 border rounded-lg text-sm">
                   <option value="A">Section A</option>
                   <option value="B">Section B</option>
                   <option value="C">Section C</option>
@@ -158,11 +157,11 @@
           </div>
         </div>
 
-        <!-- Loaded Course Roster -->
+        <!-- Loaded Roster -->
         <div class="bg-white rounded-xl shadow-sm border p-6 lg:col-span-2 flex flex-col justify-between">
           <div>
             <div class="flex justify-between items-center mb-4 pb-2 border-b">
-              <h3 class="font-bold text-slate-800"><i class="fa-solid fa-users text-indigo-600 mr-2"></i>Loaded Course Roster</h3>
+              <h3 class="font-bold text-slate-800"><i class="fa-solid fa-users text-indigo-600 mr-2"></i>Course Registered Roster</h3>
               <div class="text-xs font-semibold space-x-2">
                 <span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded">Present-P: <b id="pCount">0</b></span>
                 <span class="bg-rose-100 text-rose-800 px-2.5 py-1 rounded">Absent-A: <b id="aCount">0</b></span>
@@ -176,34 +175,33 @@
                     <th class="p-2.5">Roll No</th>
                     <th class="p-2.5">Student Name</th>
                     <th class="p-2.5">Course</th>
-                    <th class="p-2.5">Section</th>
                     <th class="p-2.5">Status</th>
                     <th class="p-2.5 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody id="rosterBody" class="divide-y divide-slate-100">
-                  <tr><td colspan="6" class="p-4 text-center text-slate-400">Select a course to load roster from Firebase...</td></tr>
+                  <tr><td colspan="5" class="p-4 text-center text-slate-400">Loading course sheet data...</td></tr>
                 </tbody>
               </table>
             </div>
           </div>
 
           <div class="pt-4 border-t mt-4 flex justify-end">
-            <button onclick="saveAttendanceToFirebase()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition flex items-center shadow-sm">
-              <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Save Attendance to Firestore
+            <button onclick="saveAttendanceToSheet()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition flex items-center shadow-sm">
+              <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Save to "Attendance Record" Sheet
             </button>
           </div>
         </div>
 
       </div>
 
-      <!-- History & Excel Export -->
+      <!-- Logs & Excel Export -->
       <div class="bg-white rounded-xl shadow-sm border p-6">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4 pb-2 border-b">
-          <h3 class="font-bold text-slate-800"><i class="fa-solid fa-database text-amber-600 mr-2"></i>Firebase "Attendance Records" History</h3>
+          <h3 class="font-bold text-slate-800"><i class="fa-solid fa-database text-amber-600 mr-2"></i>"Attendance Record" Sheet Logs</h3>
           <div class="flex gap-2">
-            <button onclick="fetchAttendanceHistory()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-2 rounded-md transition">
-              <i class="fa-solid fa-rotate mr-1"></i> Refresh Records
+            <button onclick="fetchAttendanceLogs()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-2 rounded-md transition">
+              <i class="fa-solid fa-rotate mr-1"></i> Refresh Logs
             </button>
             <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-md transition">
               <i class="fa-solid fa-file-excel mr-1"></i> Export Excel (.xlsx)
@@ -225,7 +223,7 @@
               </tr>
             </thead>
             <tbody id="logsBody" class="divide-y divide-slate-100">
-              <tr><td colspan="7" class="p-4 text-center text-slate-400">Click Refresh Records to load history.</td></tr>
+              <tr><td colspan="7" class="p-4 text-center text-slate-400">Click Refresh Logs to view saved history.</td></tr>
             </tbody>
           </table>
         </div>
@@ -241,3 +239,343 @@
       <div class="text-center">
         <div class="bg-amber-100 text-amber-600 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2 text-xl">
           <i class="fa-solid fa-lock"></i>
+        </div>
+        <h3 class="font-bold text-slate-800 text-lg">Admin Authentication</h3>
+        <p class="text-xs text-slate-500">Default Credentials: 236505 / AhmadRaza23</p>
+      </div>
+      <form onsubmit="handleAdminLogin(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">User ID</label>
+          <input type="text" id="adminUser" required placeholder="236505" class="w-full px-3 py-2 border rounded-lg text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold uppercase mb-1 text-slate-600">Password</label>
+          <input type="password" id="adminPass" required placeholder="AhmadRaza23" class="w-full px-3 py-2 border rounded-lg text-sm">
+        </div>
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-sm transition">Login</button>
+      </form>
+      <button onclick="closeAdminModal()" class="w-full text-xs text-slate-400 hover:text-slate-600">Cancel</button>
+    </div>
+  </div>
+
+  <script>
+    // PRE-CONFIGURED DEFAULT GOOGLE APPS SCRIPT URL
+    const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbyOMCXn07Y0kKjg2jg7bpfMAjTT2mVO5T92MzjuGhtYxBku2El2jvtdOReofPNTGUBIYg/exec";
+    let API_URL = localStorage.getItem("sheet_api_url") || DEFAULT_API_URL;
+    let activeCourseStudents = [];
+    let html5QrcodeScanner = null;
+
+    window.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("adminDate").value = new Date().toISOString().split("T")[0];
+      document.getElementById("apiUrlInput").value = API_URL;
+      loadCoursesFromBackend();
+    });
+
+    function saveApiUrl() {
+      const url = document.getElementById("apiUrlInput").value.trim();
+      if (!url) return alert("Please enter your Apps Script Web App URL.");
+      API_URL = url;
+      localStorage.setItem("sheet_api_url", url);
+      loadCoursesFromBackend();
+    }
+
+    function updateBadge(text, classes) {
+      const badge = document.getElementById("syncBadge");
+      badge.className = `text-xs px-2.5 py-1 rounded-full ${classes}`;
+      badge.innerHTML = text;
+    }
+
+    async function loadCoursesFromBackend() {
+      if (!API_URL) return;
+      updateBadge('<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Syncing Sheets...', 'bg-indigo-800 text-indigo-200');
+      try {
+        const res = await fetch(`${API_URL}?action=getCourseData`);
+        const data = await res.json();
+        if (data.status === "success") {
+          const regCourse = document.getElementById("regCourse");
+          const adminCourse = document.getElementById("adminCourseSelect");
+          regCourse.innerHTML = "";
+          adminCourse.innerHTML = "";
+
+          const coursesList = (data.courses && data.courses.length) ? data.courses : ["CS101", "EE201", "SE301", "ME401"];
+          coursesList.forEach(c => {
+            regCourse.innerHTML += `<option value="${c}">${c}</option>`;
+            adminCourse.innerHTML += `<option value="${c}">${c}</option>`;
+          });
+
+          loadCourseRosterFromSheet();
+          updateBadge('<i class="fa-solid fa-check mr-1"></i> Sheets Connected', 'bg-emerald-800 text-emerald-100');
+        }
+      } catch (e) {
+        console.error("Fetch Courses Error:", e);
+        updateBadge('<i class="fa-solid fa-triangle-exclamation mr-1"></i> Connection Error', 'bg-rose-800 text-rose-100');
+      }
+    }
+
+    // --- STUDENT REGISTRATION ---
+    async function handleStudentRegister(e) {
+      e.preventDefault();
+      const student = {
+        rollNo: document.getElementById("regRoll").value.trim(),
+        name: document.getElementById("regName").value.trim(),
+        course: document.getElementById("regCourse").value,
+        section: document.getElementById("regSection").value
+      };
+
+      const btn = document.getElementById("regBtn");
+      btn.disabled = true;
+      btn.innerText = "Registering to Sheet...";
+
+      if (API_URL) {
+        try {
+          await fetch(API_URL, {
+            method: "POST",
+            body: JSON.stringify({ action: "registerStudent", student: student })
+          });
+        } catch (err) {
+          console.error("Save to sheet error:", err);
+        }
+      }
+
+      generateQRCode(student);
+      alert(`Student registered successfully into course sheet [${student.course}]!`);
+      btn.disabled = false;
+      btn.innerText = "Register to Sheet & Generate QR";
+    }
+
+    function generateQRCode(student) {
+      const qrBox = document.getElementById("qrcode");
+      qrBox.innerHTML = "";
+      new QRCode(qrBox, { text: JSON.stringify(student), width: 150, height: 150 });
+
+      document.getElementById("qrName").innerText = student.name;
+      document.getElementById("qrMeta").innerText = `Roll: ${student.rollNo} | ${student.course} (${student.section})`;
+      document.getElementById("qrPlaceholder").classList.add("hidden");
+      document.getElementById("qrDisplay").classList.remove("hidden");
+    }
+
+    function downloadQR() {
+      const img = document.querySelector("#qrcode img");
+      if (!img) return;
+      const a = document.createElement("a");
+      a.download = `QR_${document.getElementById("qrName").innerText}.png`;
+      a.href = img.src;
+      a.click();
+    }
+
+    // --- ROSTER LOADING FROM COURSE SHEET ---
+    async function loadCourseRosterFromSheet() {
+      const course = document.getElementById("adminCourseSelect").value;
+      if (!course || !API_URL) return;
+
+      const tbody = document.getElementById("rosterBody");
+      tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Loading sheet [${course}]...</td></tr>`;
+
+      try {
+        const res = await fetch(`${API_URL}?action=getCourseData&course=${course}`);
+        const data = await res.json();
+        if (data.status === "success") {
+          activeCourseStudents = (data.students || []).map(s => ({
+            rollNo: s["Roll No"] || s["rollNo"] || "",
+            name: s["Name"] || s["name"] || "",
+            course: course,
+            status: "A" // Default Absent-A
+          }));
+          renderRoster();
+        }
+      } catch (err) {
+        console.error("Error loading course sheet:", err);
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-500">Failed to load sheet data.</td></tr>`;
+      }
+    }
+
+    function renderRoster() {
+      const tbody = document.getElementById("rosterBody");
+      tbody.innerHTML = "";
+
+      if (!activeCourseStudents.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">No registered students found in this course sheet.</td></tr>`;
+        updateCounts();
+        return;
+      }
+
+      activeCourseStudents.forEach((s, idx) => {
+        const isP = s.status === "P";
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-50">
+            <td class="p-2.5 font-bold">${s.rollNo}</td>
+            <td class="p-2.5">${s.name}</td>
+            <td class="p-2.5">${s.course}</td>
+            <td class="p-2.5">
+              <span class="px-2 py-0.5 rounded text-xs font-bold ${isP ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
+                ${isP ? 'Present-P' : 'Absent-A'}
+              </span>
+            </td>
+            <td class="p-2.5 text-right">
+              <button onclick="toggleStatus(${idx})" class="px-2.5 py-1 bg-slate-200 hover:bg-slate-300 rounded text-xs font-semibold">Toggle</button>
+            </td>
+          </tr>
+        `;
+      });
+      updateCounts();
+    }
+
+    function toggleStatus(i) {
+      activeCourseStudents[i].status = activeCourseStudents[i].status === "P" ? "A" : "P";
+      renderRoster();
+    }
+
+    function updateCounts() {
+      const p = activeCourseStudents.filter(s => s.status === "P").length;
+      document.getElementById("pCount").innerText = p;
+      document.getElementById("aCount").innerText = activeCourseStudents.length - p;
+    }
+
+    // --- CAMERA SCANNING ---
+    function toggleCam(start) {
+      const overlay = document.getElementById("scannerOverlay");
+      const startBtn = document.getElementById("startCamBtn");
+      const stopBtn = document.getElementById("stopCamBtn");
+
+      if (start) {
+        overlay.classList.add("hidden");
+        startBtn.classList.add("hidden");
+        stopBtn.classList.remove("hidden");
+
+        html5QrcodeScanner = new Html5Qrcode("reader");
+        html5QrcodeScanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 220, height: 220 } },
+          onScanSuccess
+        );
+      } else {
+        if (html5QrcodeScanner) {
+          html5QrcodeScanner.stop().then(() => {
+            html5QrcodeScanner.clear();
+            overlay.classList.remove("hidden");
+            startBtn.classList.remove("hidden");
+            stopBtn.classList.add("hidden");
+          });
+        }
+      }
+    }
+
+    function onScanSuccess(decodedText) {
+      try {
+        const payload = JSON.parse(decodedText);
+        if (payload.rollNo) {
+          const match = activeCourseStudents.find(s => s.rollNo.toString().trim() === payload.rollNo.toString().trim());
+          if (match) {
+            match.status = "P";
+            renderRoster();
+          }
+        }
+      } catch (e) {}
+    }
+
+    // --- SAVE TO "ATTENDANCE RECORD" SHEET ---
+    async function saveAttendanceToSheet() {
+      if (!activeCourseStudents.length) return alert("Roster is empty!");
+      if (!API_URL) return alert("Please configure your Google Apps Script API URL first!");
+
+      const payload = {
+        course: document.getElementById("adminCourseSelect").value,
+        section: document.getElementById("adminSectionSelect").value,
+        date: document.getElementById("adminDate").value,
+        records: activeCourseStudents.map(s => ({ rollNo: s.rollNo, name: s.name, status: s.status }))
+      };
+
+      try {
+        updateBadge('<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Saving...', 'bg-amber-800 text-amber-100');
+        const res = await fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify({ action: "saveAttendance", payload: payload })
+        });
+        const data = await res.json();
+        if (data.status === "success") {
+          alert("Attendance saved to 'Attendance Record' Sheet!");
+          updateBadge('<i class="fa-solid fa-check mr-1"></i> Saved', 'bg-emerald-800 text-emerald-100');
+          fetchAttendanceLogs();
+        }
+      } catch (err) {
+        alert("Failed to save attendance.");
+      }
+    }
+
+    // --- FETCH LOGS & EXCEL EXPORT ---
+    async function fetchAttendanceLogs() {
+      if (!API_URL) return;
+      const tbody = document.getElementById("logsBody");
+      tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Loading history...</td></tr>`;
+
+      try {
+        const res = await fetch(`${API_URL}?action=getAttendanceLogs`);
+        const data = await res.json();
+        if (data.status === "success") {
+          tbody.innerHTML = "";
+          if (!data.logs || !data.logs.length) {
+            tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">No attendance logs found in Google Sheets.</td></tr>`;
+            return;
+          }
+          data.logs.reverse().forEach(log => {
+            tbody.innerHTML += `
+              <tr class="hover:bg-slate-50">
+                <td class="p-2.5 font-bold">${log["Roll No"] || ''}</td>
+                <td class="p-2.5">${log["Name"] || ''}</td>
+                <td class="p-2.5">${log["Course"] || ''}</td>
+                <td class="p-2.5">${log["Section"] || ''}</td>
+                <td class="p-2.5">${log["Date"] || ''}</td>
+                <td class="p-2.5">${log["Time"] || ''}</td>
+                <td class="p-2.5 font-bold ${log["Attendance Status"] === 'Present-P' ? 'text-emerald-600' : 'text-rose-600'}">
+                  ${log["Attendance Status"] || ''}
+                </td>
+              </tr>
+            `;
+          });
+        }
+      } catch (err) {
+        console.error("Fetch Logs Error:", err);
+      }
+    }
+
+    function exportToExcel() {
+      const table = document.getElementById("exportTable");
+      const wb = XLSX.utils.table_to_book(table, { sheet: "Attendance Record" });
+      XLSX.writeFile(wb, `Attendance_Record_${new Date().toISOString().split("T")[0]}.xlsx`);
+    }
+
+    // --- AUTH & MODAL CONTROLS ---
+    function openAdminModal() {
+      document.getElementById("loginModal").classList.remove("hidden");
+      document.getElementById("loginModal").classList.add("flex");
+    }
+    function closeAdminModal() {
+      document.getElementById("loginModal").classList.add("hidden");
+      document.getElementById("loginModal").classList.remove("flex");
+    }
+    function handleAdminLogin(e) {
+      e.preventDefault();
+      const u = document.getElementById("adminUser").value.trim();
+      const p = document.getElementById("adminPass").value.trim();
+      if (u === "236505" && p === "AhmadRaza23") {
+        closeAdminModal();
+        switchView("admin");
+        loadCourseRosterFromSheet();
+        fetchAttendanceLogs();
+      } else {
+        alert("Invalid Admin Credentials!");
+      }
+    }
+    function switchView(view) {
+      if (view === 'admin') {
+        document.getElementById("studentView").classList.add("hidden");
+        document.getElementById("adminView").classList.remove("hidden");
+      } else {
+        document.getElementById("adminView").classList.add("hidden");
+        document.getElementById("studentView").classList.remove("hidden");
+        toggleCam(false);
+      }
+    }
+  </script>
+</body>
+</html>

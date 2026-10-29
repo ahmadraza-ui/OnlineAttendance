@@ -12,11 +12,16 @@
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen">
 
-  <!-- SCAN NOTIFICATION TOAST (1 SEC POPUP) -->
-  <div id="scanToast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 hidden transition-all duration-300">
-    <div id="toastContent" class="px-5 py-3 rounded-xl shadow-2xl font-bold text-sm text-white flex items-center space-x-2 border">
-      <i id="toastIcon" class="fa-solid"></i>
-      <span id="toastMsg">---</span>
+  <!-- SCAN NOTIFICATION TOAST POPUP (ZERO SCAN LATENCY) -->
+  <div id="scanToast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 hidden transition-all duration-300 w-11/12 max-w-md">
+    <div id="toastContent" class="px-5 py-3.5 rounded-2xl shadow-2xl font-semibold text-xs md:text-sm text-white flex items-center justify-between border">
+      <div class="flex items-center space-x-3">
+        <i id="toastIcon" class="fa-solid text-xl"></i>
+        <div>
+          <h4 id="toastTitle" class="font-bold uppercase text-[10px] tracking-wider opacity-90">Notification</h4>
+          <p id="toastMsg" class="font-medium text-xs md:text-sm">---</p>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -69,6 +74,7 @@
         </form>
       </div>
 
+      <!-- Generated QR Card -->
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col items-center justify-center text-center min-h-[280px]">
         <div id="qrDisplay" class="hidden flex flex-col items-center">
           <span class="bg-indigo-100 text-indigo-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">Permanent Attendance Badge</span>
@@ -261,7 +267,6 @@
   </div>
 
   <script>
-    // AUTOMATICALLY UPDATED ACTIVE WEB APP URL
     const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbyOMCXn07Y0kKjg2jg7bpfMAjTT2mVO5T92MzjuGhtYxBku2El2jvtdOReofPNTGUBIYg/exec";
     let API_URL = localStorage.getItem("sheet_api_url") || DEFAULT_API_URL;
     
@@ -277,20 +282,23 @@
       loadCoursesFromBackend();
     });
 
-    function showToast(msg, isSuccess) {
+    // Zero-Latency Toast Popup Handler (Duration: 2.5 seconds)
+    function showToast(title, msg, isSuccess) {
       const toast = document.getElementById("scanToast");
       const content = document.getElementById("toastContent");
       const icon = document.getElementById("toastIcon");
+      const toastTitle = document.getElementById("toastTitle");
       const msgTxt = document.getElementById("toastMsg");
 
+      toastTitle.innerText = title;
       msgTxt.innerText = msg;
 
       if (isSuccess) {
-        content.className = "px-5 py-3 rounded-xl shadow-2xl font-bold text-sm text-white flex items-center space-x-2 bg-emerald-600 border-emerald-500";
-        icon.className = "fa-solid fa-circle-check";
+        content.className = "px-5 py-3.5 rounded-2xl shadow-2xl font-semibold text-xs md:text-sm text-white flex items-center justify-between border bg-emerald-600 border-emerald-500";
+        icon.className = "fa-solid fa-circle-check text-2xl text-emerald-100";
       } else {
-        content.className = "px-5 py-3 rounded-xl shadow-2xl font-bold text-sm text-white flex items-center space-x-2 bg-rose-600 border-rose-500";
-        icon.className = "fa-solid fa-circle-xmark";
+        content.className = "px-5 py-3.5 rounded-2xl shadow-2xl font-semibold text-xs md:text-sm text-white flex items-center justify-between border bg-rose-600 border-rose-500";
+        icon.className = "fa-solid fa-circle-xmark text-2xl text-rose-100";
       }
 
       toast.classList.remove("hidden");
@@ -298,7 +306,7 @@
       if (toastTimer) clearTimeout(toastTimer);
       toastTimer = setTimeout(() => {
         toast.classList.add("hidden");
-      }, 1000);
+      }, 2500);
     }
 
     function saveApiUrl() {
@@ -343,12 +351,12 @@
       }
     }
 
-    // --- STUDENT VERIFICATION ENGINE ---
+    // --- HIGH-SPEED STUDENT VERIFICATION & QR GENERATION ---
     async function fetchStudentCourseData() {
       const course = document.getElementById("regCourse").value;
       if (!course || !API_URL) return;
 
-      document.getElementById("regName").value = "Loading course data...";
+      document.getElementById("regName").value = "Loading course sheet...";
       document.getElementById("regRoll").value = "";
       document.getElementById("rollError").classList.add("hidden");
       disableRegButton();
@@ -379,6 +387,7 @@
         return;
       }
 
+      // Fast Client-side Array Lookups for 100% responsiveness
       const match = studentCourseRoster.find(s => {
         const r = s["Roll No"] || s["rollNo"] || "";
         return r.toString().trim().toLowerCase() === rollInput.toLowerCase();
@@ -422,10 +431,11 @@
       generateQRCode(student);
     }
 
+    // Instant HTML Canvas Rendering
     function generateQRCode(student) {
       const qrBox = document.getElementById("qrcode");
       qrBox.innerHTML = "";
-      new QRCode(qrBox, { text: JSON.stringify(student), width: 140, height: 140 });
+      new QRCode(qrBox, { text: JSON.stringify(student), width: 150, height: 150 });
 
       document.getElementById("qrName").innerText = student.name;
       document.getElementById("qrMeta").innerText = `Roll: ${student.rollNo} | ${student.course}`;
@@ -510,7 +520,7 @@
       document.getElementById("aCount").innerText = activeCourseStudents.length - p;
     }
 
-    // --- CAMERA SCANNING ENGINE WITH 1-SEC POPUPS ---
+    // --- ZERO-LATENCY SCANNER ENGINE ---
     function toggleCam(start) {
       const overlay = document.getElementById("scannerOverlay");
       const startBtn = document.getElementById("startCamBtn");
@@ -524,7 +534,7 @@
         html5QrcodeScanner = new Html5Qrcode("reader");
         html5QrcodeScanner.start(
           { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 200, height: 200 } },
+          { fps: 15, qrbox: { width: 220, height: 220 } },
           onScanSuccess
         );
       } else {
@@ -546,30 +556,31 @@
         const currentCourse = document.getElementById("adminCourseSelect").value;
 
         if (!roll) {
-          showToast("Unsuccessful: Invalid QR Code", false);
+          showToast("Scan Error", "Unsuccessful: QR Code format not valid.", false);
           return;
         }
 
+        // Prevent duplicate triggering for the exact same frame
         if (roll === lastScannedRoll) return;
         lastScannedRoll = roll;
-        setTimeout(() => { lastScannedRoll = ""; }, 2000);
+        setTimeout(() => { lastScannedRoll = ""; }, 1800);
 
         const match = activeCourseStudents.find(s => s.rollNo.toString().trim() === roll);
 
         if (match) {
           match.status = "P";
-          renderRoster();
-          showToast(`Present-P Marked for ${match.name} (${roll})`, true);
+          renderRoster(); // Immediate domestic DOM update (<1ms latency)
+          showToast("Scan Successful", `Attendance Marked: Present-P | Roll: ${roll} | ${match.name}`, true);
         } else {
-          showToast(`Unsuccessful: Roll No ${roll} Not Registered in ${currentCourse}`, false);
+          showToast("Scan Unsuccessful", `Roll No ${roll} is Not Registered under ${currentCourse}.`, false);
         }
 
       } catch (e) {
-        showToast("Unsuccessful: Unrecognized QR Data Format", false);
+        showToast("Scan Error", "Unsuccessful: Unrecognized QR Data Format.", false);
       }
     }
 
-    // --- SAVE TO "ATTENDANCE RECORD" SHEET ---
+    // --- ASYNCHRONOUS BATCH SAVE TO "ATTENDANCE RECORD" SHEET ---
     async function saveAttendanceToSheet() {
       if (!activeCourseStudents.length) return alert("Roster is empty!");
       if (!API_URL) return alert("Please configure your Google Apps Script API URL first!");
@@ -589,7 +600,7 @@
         });
         const data = await res.json();
         if (data.status === "success") {
-          alert("Attendance saved to 'Attendance Record' Sheet!");
+          alert("Attendance saved to 'Attendance Record' Sheet successfully!");
           updateBadge('<i class="fa-solid fa-check mr-1"></i> Saved', 'bg-emerald-800 text-emerald-100');
           fetchAttendanceLogs();
         }

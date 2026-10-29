@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart QR Attendance System</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- QRCode.js library for generating QR codes -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- HTML5 QR Code Scanner Library -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- SheetJS / XLSX Library for Excel Export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    #reader video {
+      width: 100% !important;
+      border-radius: 0.75rem;
+      object-fit: cover;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between">
+
+  <!-- Toast Notification System -->
+  <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+  <!-- Header / Navigation -->
+  <header class="bg-indigo-700 text-white shadow-lg sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('student-portal')">
+          <div class="bg-white/10 p-2 rounded-xl backdrop-blur-sm">
+            <i class="fa-solid fa-qrcode text-2xl text-indigo-200"></i>
+          </div>
+          <div>
+            <h1 class="font-bold text-lg leading-tight">Smart Attendance</h1>
+            <p class="text-xs text-indigo-200">QR Code Attendance Portal</p>
+          </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <nav class="hidden md:flex space-x-2">
+          <button onclick="switchTab('student-portal')" id="nav-student-portal" class="nav-tab px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-indigo-800 text-white">
+            <i class="fa-solid fa-user-graduate mr-1.5"></i> Student Portal
+          </button>
+          <button onclick="switchTab('admin-scanner')" id="nav-admin-scanner" class="nav-tab px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-indigo-600 text-indigo-100">
+            <i class="fa-solid fa-camera mr-1.5"></i> QR Scanner
+          </button>
+          <button onclick="switchTab('admin-manage')" id="nav-admin-manage" class="nav-tab px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-indigo-600 text-indigo-100">
+            <i class="fa-solid fa-users-gear mr-1.5"></i> Manage Data
+          </button>
+          <button onclick="switchTab('admin-history')" id="nav-admin-history" class="nav-tab px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-indigo-600 text-indigo-100">
+            <i class="fa-solid fa-clock-rotate-left mr-1.5"></i> Attendance Logs
+          </button>
+        </nav>
+
+        <!-- Auth Indicator / Quick Actions -->
+        <div class="flex items-center space-x-3">
+          <div id="admin-badge" class="hidden items-center bg-emerald-500/20 text-emerald-100 px-3 py-1 rounded-full text-xs font-semibold border border-emerald-400/30">
+            <i class="fa-solid fa-shield-check mr-1.5 text-emerald-300"></i> Admin Session
+          </div>
+          <button id="admin-auth-btn" onclick="toggleAdminAuth()" class="bg-indigo-800 hover:bg-indigo-900 text-indigo-100 px-3 py-1.5 rounded-lg text-xs font-medium border border-indigo-500/30 transition shadow-sm flex items-center gap-1.5">
+            <i class="fa-solid fa-lock" id="auth-btn-icon"></i> <span id="auth-btn-text">Admin Login</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Nav Bar -->
+    <div class="md:hidden bg-indigo-800 border-t border-indigo-600/50 flex justify-around p-2 text-xs">
+      <button onclick="switchTab('student-portal')" class="mobile-nav flex flex-col items-center py-1 text-white" id="mob-student-portal">
+        <i class="fa-solid fa-user-graduate text-base mb-0.5"></i>
+        <span>Student</span>
+      </button>
+      <button onclick="switchTab('admin-scanner')" class="mobile-nav flex flex-col items-center py-1 text-indigo-200" id="mob-admin-scanner">
+        <i class="fa-solid fa-camera text-base mb-0.5"></i>
+        <span>Scanner</span>
+      </button>
+      <button onclick="switchTab('admin-manage')" class="mobile-nav flex flex-col items-center py-1 text-indigo-200" id="mob-admin-manage">
+        <i class="fa-solid fa-users-gear text-base mb-0.5"></i>
+        <span>Manage</span>
+      </button>
+      <button onclick="switchTab('admin-history')" class="mobile-nav flex flex-col items-center py-1 text-indigo-200" id="mob-admin-history">
+        <i class="fa-solid fa-clock-rotate-left text-base mb-0.5"></i>
+        <span>Logs</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full">
+
+    <!-- ==================== TAB 1: STUDENT PORTAL ==================== -->
+    <section id="tab-student-portal" class="tab-content block space-y-6">
+      <!-- Banner -->
+      <div class="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="space-y-2 text-center md:text-left">
+          <span class="bg-white/20 text-xs font-semibold px-2.5 py-1 rounded-full uppercase tracking-wider">Student Self-Service</span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Register & Get Your Permanent Attendance QR</h2>
+          <p class="text-indigo-100 text-sm max-w-xl">Register once to download your standard dynamic attendance QR code. You will use this exact same QR code every single day to mark attendance in class!</p>
+        </div>
+        <div class="flex gap-3">
+          <button onclick="document.getElementById('lookup-section').scrollIntoView({behavior:'smooth'})" class="bg-white text-indigo-700 hover:bg-indigo-50 font-semibold px-4 py-2.5 rounded-xl text-sm transition shadow-md flex items-center gap-2">
+            <i class="fa-solid fa-magnifying-glass"></i> Find My Existing QR
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <!-- Registration Form Card -->
+        <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 sm:p-8 space-y-6">
+          <div class="border-b border-slate-100 pb-4">
+            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <i class="fa-solid fa-user-plus text-indigo-600"></i> New Student Registration
+            </h3>
+            <p class="text-xs text-slate-500 mt-0.5">Enter your academic details accurately to generate your official QR card.</p>
+          </div>
+
+          <form id="student-reg-form" onsubmit="handleStudentRegistration(event)" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Roll Number <span class="text-red-500">*</span></label>
+                <input type="text" id="reg-roll" required placeholder="e.g. 23-CS-101" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm uppercase transition">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Full Name <span class="text-red-500">*</span></label>
+                <input type="text" id="reg-name" required placeholder="e.g. Ahmad Raza" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Course <span class="text-red-500">*</span></label>
+                <select id="reg-course" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition bg-white">
+                  <!-- Dynamic selection loaded from JS -->
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Section <span class="text-red-500">*</span></label>
+                <select id="reg-section" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition bg-white">
+                  <!-- Dynamic selection -->
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Email / Phone (Optional)</label>
+              <input type="text" id="reg-contact" placeholder="e.g. student@university.edu" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition">
+            </div>
+
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-indigo-600/20 transition flex items-center justify-center gap-2 text-sm">
+              <i class="fa-solid fa-qrcode"></i> Generate Permanent Student QR Code
+            </button>
+          </form>
+        </div>
+
+        <!-- Generated QR Display Card -->
+        <div class="lg:col-span-5 flex flex-col">
+          <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 sm:p-8 flex-1 flex flex-col justify-between items-center text-center">
+            <div class="w-full">
+              <div class="border-b border-slate-100 pb-3 mb-4 text-left">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <i class="fa-solid fa-id-card text-emerald-600"></i> Your Digital QR Card
+                </h3>
+                <p class="text-xs text-slate-500">Scan this code at the classroom entrance scanner.</p>
+              </div>
+
+              <!-- Placeholder State -->
+              <div id="qr-placeholder" class="py-12 px-4 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center space-y-3 bg-slate-50/50">
+                <div class="w-16 h-16 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-400">
+                  <i class="fa-solid fa-qrcode text-3xl"></i>
+                </div>
+                <p class="text-sm font-medium text-slate-600">No QR Code Generated Yet</p>
+                <p class="text-xs text-slate-400 max-w-xs">Fill out the registration form or search your Roll Number below to load your personal code.</p>
+              </div>
+
+              <!-- Active QR Card Result -->
+              <div id="qr-active-card" class="hidden flex-col items-center p-6 bg-gradient-to-b from-slate-900 to-indigo-950 text-white rounded-2xl shadow-xl w-full">
+                <div class="flex items-center justify-between w-full border-b border-slate-800 pb-3 mb-4">
+                  <span class="text-xs font-mono bg-indigo-500/20 text-indigo-300 px-2 py-1 rounded border border-indigo-500/30">STUDENT PASS</span>
+                  <span id="qr-card-course-badge" class="text-xs font-bold bg-emerald-500 text-white px-2 py-0.5 rounded">CS-101</span>
+                </div>
+
+                <div class="bg-white p-3.5 rounded-xl shadow-inner mb-4 flex items-center justify-center border-4 border-white" id="qrcode-container">
+                  <!-- QR Rendered Here -->
+                </div>
+
+                <h4 id="qr-card-name" class="font-bold text-lg text-white">Ahmad Raza</h4>
+                <p id="qr-card-roll" class="font-mono text-sm text-indigo-200 tracking-wider">ROLL: 236505</p>
+                <p id="qr-card-sec" class="text-xs text-slate-400 mt-1">Section A • Morning</p>
+
+                <div class="mt-5 pt-4 border-t border-slate-800/80 w-full flex gap-2">
+                  <button onclick="downloadQRCode()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium py-2.5 px-3 rounded-lg transition flex items-center justify-center gap-1.5 shadow">
+                    <i class="fa-solid fa-download"></i> Save / Download
+                  </button>
+                  <button onclick="printQRCode()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium py-2.5 px-3 rounded-lg transition">
+                    <i class="fa-solid fa-print"></i> Print
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Search Existing Student QR -->
+      <div id="lookup-section" class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+              <i class="fa-solid fa-magnifying-glass text-indigo-600"></i> Retrieve Already Registered QR Code
+            </h3>
+            <p class="text-xs text-slate-500">Lost your saved code? Enter your assigned Roll Number to re-display your permanent QR code.</p>
+          </div>
+          <div class="flex w-full sm:w-auto gap-2">
+            <input type="text" id="lookup-roll" placeholder="Enter Roll No..." class="px-3.5 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 text-sm uppercase">
+            <button onclick="lookupStudentQR()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-xl text-sm transition shadow flex items-center gap-1.5 whitespace-nowrap">
+              <i class="fa-solid fa-search"></i> Find QR
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: ADMIN SCANNER ==================== -->
+    <section id="tab-admin-scanner" class="tab-content hidden space-y-6">
+      
+      <!-- Session Setup Header -->
+      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-5">
+          <div>
+            <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <i class="fa-solid fa-camera text-indigo-600"></i> Live Classroom Attendance Scanner
+            </h2>
+            <p class="text-xs text-slate-500">Select class settings first, then start the camera session to scan student QR codes.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="session-status-badge" class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-slate-400"></span> Session Idle
+            </span>
+          </div>
+        </div>
+
+        <!-- Session Selection Controls -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Target Course</label>
+            <select id="scanner-course" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 text-sm bg-white">
+              <!-- JS Loaded -->
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Target Section</label>
+            <select id="scanner-section" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 text-sm bg-white">
+              <!-- JS Loaded -->
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Attendance Date</label>
+            <input type="date" id="scanner-date" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 text-sm bg-white">
+          </div>
+          <div class="flex items-end gap-2">
+            <button id="btn-start-session" onclick="startAttendanceSession()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-xl text-sm transition shadow flex items-center justify-center gap-2">
+              <i class="fa-solid fa-play"></i> Start Session
+            </button>
+            <button id="btn-stop-session" onclick="stopAttendanceSession()" disabled class="hidden bg-slate-200 text-slate-500 font-medium py-2 px-4 rounded-xl text-sm transition flex items-center justify-center gap-2 cursor-not-allowed">
+              <i class="fa-solid fa-stop"></i> Close Cam
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Session Workspace -->
+      <div id="live-session-container" class="grid grid-cols-1 lg:grid-cols-12 gap-8 hidden">
+        
+        <!-- Camera Scanner Viewport & Manual Scan Backup -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="bg-slate-900 rounded-2xl p-4 shadow-xl text-white relative overflow-hidden flex flex-col items-center">
+            <div class="w-full flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
+              <span class="text-xs font-semibold text-slate-400 flex items-center gap-2">
+                <i class="fa-solid fa-video text-red-500 animate-pulse"></i> LIVE SCANNER
+              </span>
+              <span id="scan-feedback-pill" class="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded">
+                Point QR at camera
+              </span>
+            </div>
+
+            <!-- Video Render Box -->
+            <div id="reader" class="w-full bg-black rounded-xl min-h-[260px] flex items-center justify-center">
+              <p class="text-xs text-slate-500 p-4 text-center">Camera stopped or initializing...</p>
+            </div>
+
+            <!-- Manual Fallback Scanner Entry -->
+            <div class="w-full mt-4 pt-3 border-t border-slate-800 space-y-2">
+              <p class="text-xs text-slate-400">Manual Scanner Backup (Type Roll No or Scan Barcode):</p>
+              <div class="flex gap-2">
+                <input type="text" id="manual-scan-input" placeholder="Enter Roll No (e.g. 236505)..." class="flex-1 bg-slate-800 border border-slate-700 text-white px-3 py-1.5 rounded-lg text-sm uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <button onclick="handleManualScanSubmit()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition">
+                  Mark Present
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Audio Toggle & Instructions -->
+          <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 flex items-center justify-between text-xs text-indigo-900">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-volume-high text-indigo-600 text-lg"></i>
+              <div>
+                <p class="font-semibold">Beep Confirmation Active</p>
+                <p class="text-indigo-600">Audio plays automatically upon valid scan detection.</p>
+              </div>
+            </div>
+            <button onclick="testAudioBeep()" class="text-indigo-700 underline font-medium hover:text-indigo-900">Test Sound</button>
+          </div>
+        </div>
+
+        <!-- Attendance Roster & Real-time Live Sheet -->
+        <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 flex flex-col justify-between">
+          <div class="space-y-4">
+            <!-- Roster Summary Header -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                  <i class="fa-solid fa-list-check text-indigo-600"></i> Session Roster Sheet
+                </h3>
+                <p id="live-roster-subtitle" class="text-xs text-slate-500">CS-101 | Section A | Initialized with default Absent (A)</p>
+              </div>
+
+              <!-- Stats counters -->
+              <div class="flex items-center gap-2">
+                <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1 rounded-xl text-center">
+                  <span class="block text-xs text-emerald-600 uppercase font-bold">Present</span>
+                  <span id="live-present-count" class="text-base font-extrabold text-emerald-700">0</span>
+                </div>
+                <div class="bg-red-50 border border-red-200 text-red-800 px-3 py-1 rounded-xl text-center">
+                  <span class="block text-xs text-red-600 uppercase font-bold">Absent</span>
+                  <span id="live-absent-count" class="text-base font-extrabold text-red-700">0</span>
+                </div>
+                <div class="bg-slate-100 border border-slate-200 text-slate-800 px-3 py-1 rounded-xl text-center">
+                  <span class="block text-xs text-slate-500 uppercase font-bold">Total</span>
+                  <span id="live-total-count" class="text-base font-extrabold">0</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Scrollable Student Roster Table -->
+            <div class="overflow-x-auto max-h-[380px] custom-scrollbar border border-slate-100 rounded-xl">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50 text-slate-600 uppercase font-semibold sticky top-0 border-b border-slate-200">
+                  <tr>
+                    <th class="p-3">Roll No</th>
+                    <th class="p-3">Student Name</th>
+                    <th class="p-3">Status</th>
+                    <th class="p-3">Scan Time</th>
+                    <th class="p-3 text-right">Quick Toggle</th>
+                  </tr>
+                </thead>
+                <tbody id="live-roster-body" class="divide-y divide-slate-100">
+                  <!-- JS dynamically fills rows with default Absent state -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Bottom Session Controls -->
+          <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between flex-wrap gap-3">
+            <span class="text-xs text-slate-500">Clicking save will log this record to the permanent database.</span>
+            <button onclick="saveAttendanceSession()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition shadow-lg shadow-emerald-600/20 flex items-center gap-2">
+              <i class="fa-solid fa-floppy-disk"></i> Save Attendance Session
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: MANAGE DATA ==================== -->
+    <section id="tab-admin-manage" class="tab-content hidden space-y-6">
+      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <i class="fa-solid fa-users-gear text-indigo-600"></i> Course & Student Management
+            </h2>
+            <p class="text-xs text-slate-500">Add classes, courses, and register students into master lists.</p>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="seedSampleData()" class="bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-semibold px-3 py-2 rounded-xl transition flex items-center gap-1.5">
+              <i class="fa-solid fa-database"></i> Reset & Seed Sample Data
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          <!-- Add Course & Section Form -->
+          <div class="lg:col-span-4 bg-slate-50 rounded-xl p-5 border border-slate-200/80 space-y-5">
+            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <i class="fa-solid fa-book text-indigo-600"></i> Add Course or Section
+            </h3>
+
+            <form onsubmit="handleAddCourse(event)" class="space-y-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Course Code / Name</label>
+                <input type="text" id="new-course-name" required placeholder="e.g. CS-101 Data Structures" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+              </div>
+              <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-3 rounded-lg text-xs transition shadow">
+                <i class="fa-solid fa-plus mr-1"></i> Add Course
+              </button>
+            </form>
+
+            <hr class="border-slate-200">
+
+            <form onsubmit="handleAddSection(event)" class="space-y-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Section Name</label>
+                <input type="text" id="new-section-name" required placeholder="e.g. Section A" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+              </div>
+              <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2 px-3 rounded-lg text-xs transition shadow">
+                <i class="fa-solid fa-plus mr-1"></i> Add Section
+              </button>
+            </form>
+          </div>
+
+          <!-- Student Master Table -->
+          <div class="lg:col-span-8 space-y-4">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                <i class="fa-solid fa-graduation-cap text-indigo-600"></i> Registered Student Roster
+              </h3>
+              <div class="flex items-center gap-2">
+                <input type="text" id="manage-search" oninput="renderManageStudentTable()" placeholder="Search roll or name..." class="px-3 py-1.5 border border-slate-300 rounded-lg text-xs">
+              </div>
+            </div>
+
+            <div class="overflow-x-auto border border-slate-200 rounded-xl max-h-[420px] custom-scrollbar">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-100 text-slate-600 font-semibold uppercase sticky top-0 border-b border-slate-200">
+                  <tr>
+                    <th class="p-3">Roll No</th>
+                    <th class="p-3">Name</th>
+                    <th class="p-3">Course</th>
+                    <th class="p-3">Section</th>
+                    <th class="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="manage-student-table-body" class="divide-y divide-slate-100">
+                  <!-- JS loaded -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: ATTENDANCE LOGS & REPORTS ==================== -->
+    <section id="tab-admin-history" class="tab-content hidden space-y-6">
+      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-6">
+        
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+          <div>
+            <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <i class="fa-solid fa-clock-rotate-left text-indigo-600"></i> Attendance Records & Excel Export
+            </h2>
+            <p class="text-xs text-slate-500">Filter past session records, edit individual student statuses, or download reports.</p>
+          </div>
+
+          <!-- Excel Download Button -->
+          <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-xl text-sm transition shadow-md flex items-center gap-2 self-start md:self-auto">
+            <i class="fa-solid fa-file-excel text-base"></i> Download Excel (.xlsx)
+          </button>
+        </div>
+
+        <!-- Filter Toolbar -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200/60">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Filter Course</label>
+            <select id="history-filter-course" onchange="renderHistoryLogs()" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white">
+              <option value="ALL">All Courses</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Filter Section</label>
+            <select id="history-filter-section" onchange="renderHistoryLogs()" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white">
+              <option value="ALL">All Sections</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Filter Date</label>
+            <input type="date" id="history-filter-date" onchange="renderHistoryLogs()" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white">
+          </div>
+          <div class="flex items-end">
+            <button onclick="resetHistoryFilters()" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 py-2 px-3 rounded-lg text-xs font-medium transition">
+              Reset Filters
+            </button>
+          </div>
+        </div>
+
+        <!-- Dashboard Summary Bar -->
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div class="p-4 rounded-xl border border-slate-200 bg-white shadow-xs">
+            <span class="text-xs text-slate-500 uppercase font-semibold">Total Session Logs</span>
+            <p id="summary-total-sessions" class="text-2xl font-bold text-slate-800 mt-1">0</p>
+          </div>
+          <div class="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 shadow-xs">
+            <span class="text-xs text-emerald-600 uppercase font-semibold">Presents Recorded</span>
+            <p id="summary-total-present" class="text-2xl font-bold text-emerald-700 mt-1">0</p>
+          </div>
+          <div class="p-4 rounded-xl border border-red-200 bg-red-50/50 shadow-xs">
+            <span class="text-xs text-red-600 uppercase font-semibold">Absents Recorded</span>
+            <p id="summary-total-absent" class="text-2xl font-bold text-red-700 mt-1">0</p>
+          </div>
+          <div class="p-4 rounded-xl border border-indigo-200 bg-indigo-50/50 shadow-xs">
+            <span class="text-xs text-indigo-600 uppercase font-semibold">Avg Attendance Rate</span>
+            <p id="summary-avg-rate" class="text-2xl font-bold text-indigo-700 mt-1">0%</p>
+          </div>
+        </div>
+
+        <!-- Logs Accordion / List View -->
+        <div id="history-logs-container" class="space-y-4">
+          <!-- Dynamically populated session cards -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500 mt-auto">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-2">
+      <p>© Smart Attendance System — QR Code Classroom Portal</p>
+      <p class="font-mono text-slate-400">Admin Credentials: User: 236505 | Pass: AhmadRaza23</p>
+    </div>
+  </footer>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- Admin Login Modal -->
+  <div id="login-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full p-6 space-y-5 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <i class="fa-solid fa-lock text-indigo-600"></i> Admin Verification Required
+        </h3>
+        <button onclick="closeLoginModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <form onsubmit="handleAdminLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Username / ID</label>
+          <input type="text" id="admin-user-input" required placeholder="Default: 236505" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Password</label>
+          <input type="password" id="admin-pass-input" required placeholder="Default: AhmadRaza23" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+        </div>
+        <div id="login-error" class="hidden text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200">
+          Invalid Credentials. Default Username: <b>236505</b> & Password: <b>AhmadRaza23</b>
+        </div>
+        <div class="pt-2 flex gap-3">
+          <button type="button" onclick="closeLoginModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl text-sm font-medium">Cancel</button>
+          <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow">Authenticate</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Print Modal Template -->
+  <div id="print-area" class="hidden"></div>
+
+  <!-- ==================== JAVASCRIPT APP LOGIC ==================== -->
+  <script>
+    // --- APP STATE & LOCALSTORAGE persistence ---
+    const STORAGE_KEY_STUDENTS = 'att_app_students_v2';
+    const STORAGE_KEY_COURSES = 'att_app_courses_v2';
+    const STORAGE_KEY_SECTIONS = 'att_app_sections_v2';
+    const STORAGE_KEY_LOGS = 'att_app_logs_v2';
+
+    // Default Seed Data
+    const defaultCourses = ["CS-101 Data Structures", "ENG-201 Communication", "MATH-110 Linear Algebra"];
+    const defaultSections = ["Section A", "Section B", "Section C"];
+    const defaultStudents = [
+      { roll: "236505", name: "Ahmad Raza", course: "CS-101 Data Structures", section: "Section A", contact: "ahmad@uni.edu" },
+      { roll: "23-CS-102", name: "Sara Khan", course: "CS-101 Data Structures", section: "Section A", contact: "sara@uni.edu" },
+      { roll: "23-CS-103", name: "Ali Hassan", course: "CS-101 Data Structures", section: "Section A", contact: "ali@uni.edu" },
+      { roll: "23-CS-104", name: "Zainab Fatima", course: "CS-101 Data Structures", section: "Section B", contact: "zainab@uni.edu" },
+      { roll: "23-CS-105", name: "Usman Tariq", course: "CS-101 Data Structures", section: "Section B", contact: "usman@uni.edu" }
+    ];
+
+    let students = [];
+    let courses = [];
+    let sections = [];
+    let historyLogs = [];
+
+    let isAdminLoggedIn = false;
+    let pendingTabDestination = null;
+
+    // Active Live Session State
+    let activeSession = null; 
+    let html5QrScanner = null;
+    let currentQrCodeObj = null;
+
+    // --- INITIALIZATION ---
+    window.onload = function() {
+      loadLocalStorageData();
+      populateDropdowns();
+      renderManageStudentTable();
+      renderHistoryLogs();
+      setDefaultDate();
+    };
+
+    function setDefaultDate() {
+      const today = new Date().toISOString().split('T')[0];
+      const dateElem = document.getElementById('scanner-date');
+      if (dateElem) dateElem.value = today;
+    }
+
+    function loadLocalStorageData() {
+      const storedCourses = localStorage.getItem(STORAGE_KEY_COURSES);
+      const storedSections = localStorage.getItem(STORAGE_KEY_SECTIONS);
+      const storedStudents = localStorage.getItem(STORAGE_KEY_STUDENTS);
+      const storedLogs = localStorage.getItem(STORAGE_KEY_LOGS);
+
+      courses = storedCourses ? JSON.parse(storedCourses) : [...defaultCourses];
+      sections = storedSections ? JSON.parse(storedSections) : [...defaultSections];
+      students = storedStudents ? JSON.parse(storedStudents) : [...defaultStudents];
+      historyLogs = storedLogs ? JSON.parse(storedLogs) : [];
+
+      saveAllToLocalStorage();
+    }
+
+    function saveAllToLocalStorage() {
+      localStorage.setItem(STORAGE_KEY_COURSES, JSON.stringify(courses));
+      localStorage.setItem(STORAGE_KEY_SECTIONS, JSON.stringify(sections));
+      localStorage.setItem(STORAGE_KEY_STUDENTS, JSON.stringify(students));
+      localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(historyLogs));
+    }
+
+    function seedSampleData() {
+      courses = [...defaultCourses];
+      sections = [...defaultSections];
+      students = [...defaultStudents];
+      saveAllToLocalStorage();
+      populateDropdowns();
+      renderManageStudentTable();
+      showToast("Sample data restored successfully!", "success");
+    }
+
+    function populateDropdowns() {
+      // Registration Dropdowns
+      const regCourse = document.getElementById('reg-course');
+      const regSec = document.getElementById('reg-section');
+      const scanCourse = document.getElementById('scanner-course');
+      const scanSec = document.getElementById('scanner-section');
+      const filterCourse = document.getElementById('history-filter-course');
+      const filterSec = document.getElementById('history-filter-section');
+
+      if (regCourse) regCourse.innerHTML = courses.map(c => `<option value="${c}">${c}</option>`).join('');
+      if (regSec) regSec.innerHTML = sections.map(s => `<option value="${s}">${s}</option>`).join('');
+      if (scanCourse) scanCourse.innerHTML = courses.map(c => `<option value="${c}">${c}</option>`).join('');
+      if (scanSec) scanSec.innerHTML = sections.map(s => `<option value="${s}">${s}</option>`).join('');
+
+      if (filterCourse) {
+        filterCourse.innerHTML = `<option value="ALL">All Courses</option>` + courses.map(c => `<option value="${c}">${c}</option>`).join('');
+      }
+      if (filterSec) {
+        filterSec.innerHTML = `<option value="ALL">All Sections</option>` + sections.map(s => `<option value="${s}">${s}</option>`).join('');
+      }
+    }
+
+    // --- NAVIGATION & ADMIN AUTH GUARD ---
+    function switchTab(tabId) {
+      // Check admin tabs protection
+      if (tabId.startsWith('admin-') && !isAdminLoggedIn) {
+        pendingTabDestination = tabId;
+        openLoginModal();
+        return;
+      }
+
+      // Hide all tabs
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.nav-tab').forEach(el => {
+        el.classList.remove('bg-indigo-800', 'text-white');
+        el.classList.add('text-indigo-100', 'hover:bg-indigo-600');
+      });
+
+      // Show targeted tab
+      const target = document.getElementById(`tab-${tabId}`);
+      if (target) target.classList.remove('hidden');
+
+      const activeNav = document.getElementById(`nav-${tabId}`);
+      if (activeNav) {
+        activeNav.classList.add('bg-indigo-800', 'text-white');
+        activeNav.classList.remove('hover:bg-indigo-600');
+      }
+
+      if (tabId === 'admin-history') renderHistoryLogs();
+    }
+
+    function openLoginModal() {
+      document.getElementById('login-modal').classList.remove('hidden');
+      document.getElementById('login-error').classList.add('hidden');
+    }
+
+    function closeLoginModal() {
+      document.getElementById('login-modal').classList.add('hidden');
+      pendingTabDestination = null;
+    }
+
+    function handleAdminLogin(e) {
+      e.preventDefault();
+      const user = document.getElementById('admin-user-input').value.trim();
+      const pass = document.getElementById('admin-pass-input').value.trim();
+
+      // Specified Admin Credentials: User 236505 & Pass AhmadRaza23
+      if (user === "236505" && pass === "AhmadRaza23") {
+        isAdminLoggedIn = true;
+        closeLoginModal();
+        updateAdminUIState();
+        showToast("Authenticated as Admin!", "success");
+
+        if (pendingTabDestination) {
+          switchTab(pendingTabDestination);
+          pendingTabDestination = null;
+        }
+      } else {
+        document.getElementById('login-error').classList.remove('hidden');
+      }
+    }
+
+    function toggleAdminAuth() {
+      if (isAdminLoggedIn) {
+        isAdminLoggedIn = false;
+        updateAdminUIState();
+        switchTab('student-portal');
+        showToast("Logged out from Admin mode", "info");
+      } else {
+        openLoginModal();
+      }
+    }
+
+    function updateAdminUIState() {
+      const badge = document.getElementById('admin-badge');
+      const btnText = document.getElementById('auth-btn-text');
+      const btnIcon = document.getElementById('auth-btn-icon');
+
+      if (isAdminLoggedIn) {
+        badge.classList.remove('hidden');
+        badge.classList.add('flex');
+        btnText.innerText = "Logout Admin";
+        btnIcon.className = "fa-solid fa-right-from-bracket";
+      } else {
+        badge.classList.add('hidden');
+        badge.classList.remove('flex');
+        btnText.innerText = "Admin Login";
+        btnIcon.className = "fa-solid fa-lock";
+      }
+    }
+
+    // --- STUDENT PORTAL: REGISTRATION & QR ---
+    function handleStudentRegistration(e) {
+      e.preventDefault();
+      const roll = document.getElementById('reg-roll').value.trim();
+      const name = document.getElementById('reg-name').value.trim();
+      const course = document.getElementById('reg-course').value;
+      const section = document.getElementById('reg-section').value;
+      const contact = document.getElementById('reg-contact').value.trim();
+
+      // Check if student exists
+      let existingIndex = students.findIndex(s => s.roll.toUpperCase() === roll.toUpperCase());
+      const studentObj = { roll, name, course, section, contact };
+
+      if (existingIndex >= 0) {
+        students[existingIndex] = studentObj;
+        showToast(`Updated existing student profile for ${roll}`, "info");
+      } else {
+        students.push(studentObj);
+        showToast(`Registration Successful for ${name}!`, "success");
+      }
+
+      saveAllToLocalStorage();
+      renderManageStudentTable();
+      displayStudentQRCard(studentObj);
+      document.getElementById('student-reg-form').reset();
+    }
+
+    function displayStudentQRCard(student) {
+      document.getElementById('qr-placeholder').classList.add('hidden');
+      const card = document.getElementById('qr-active-card');
+      card.classList.remove('hidden');
+      card.classList.add('flex');
+
+      document.getElementById('qr-card-name').innerText = student.name;
+      document.getElementById('qr-card-roll').innerText = `ROLL: ${student.roll.toUpperCase()}`;
+      document.getElementById('qr-card-sec').innerText = `${student.course} • ${student.section}`;
+
+      // Payload JSON stringified
+      const qrPayload = JSON.stringify({
+        roll: student.roll.toUpperCase(),
+        name: student.name,
+        course: student.course,
+        section: student.section
+      });
+
+      const container = document.getElementById('qrcode-container');
+      container.innerHTML = ''; // Clear existing
+
+      currentQrCodeObj = new QRCode(container, {
+        text: qrPayload,
+        width: 170,
+        height: 170,
+        colorDark: "#0f172a",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    }
+
+    function lookupStudentQR() {
+      const roll = document.getElementById('lookup-roll').value.trim().toUpperCase();
+      if (!roll) {
+        showToast("Please enter a Roll Number", "warning");
+        return;
+      }
+
+      const match = students.find(s => s.roll.toUpperCase() === roll);
+      if (match) {
+        displayStudentQRCard(match);
+        showToast(`Found student record for ${match.name}`, "success");
+      } else {
+        showToast(`No student found with Roll No: ${roll}`, "error");
+      }
+    }
+
+    function downloadQRCode() {
+      const container = document.getElementById('qrcode-container');
+      const img = container.querySelector('img');
+      const canvas = container.querySelector('canvas');
+
+      let imageSrc = '';
+      if (img && img.src) {
+        imageSrc = img.src;
+      } else if (canvas) {
+        imageSrc = canvas.toDataURL("image/png");
+      }
+
+      if (!imageSrc) {
+        showToast("Failed to render QR image", "error");
+        return;
+      }
+
+      const link = document.createElement('a');
+      link.href = imageSrc;
+      link.download = `QR_Attendance_${document.getElementById('qr-card-roll').innerText.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("Downloaded QR Code image", "success");
+    }
+
+    function printQRCode() {
+      const cardHTML = document.getElementById('qr-active-card').innerHTML;
+      const printWin = window.open('', '', 'width=600,height=600');
+      printWin.document.write(`
+        <html>
+          <head>
+            <title>Print Student QR Code</title>
+            <script src="https://cdn.tailwindcss.com"><\/script>
+          </head>
+          <body class="p-8 flex items-center justify-center bg-white">
+            <div class="border-2 border-slate-900 rounded-2xl p-6 max-w-sm text-center">
+              ${cardHTML}
+            </div>
+            <script>
+              setTimeout(() => { window.print(); window.close(); }, 500);
+            <\/script>
+          </body>
+        </html>
+      `);
+      printWin.document.close();
+    }
+
+    // --- ADMIN SCANNER & SESSION LOGIC ---
+    function startAttendanceSession() {
+      const course = document.getElementById('scanner-course').value;
+      const section = document.getElementById('scanner-section').value;
+      const date = document.getElementById('scanner-date').value;
+
+      if (!date) {
+        showToast("Please select a date first", "warning");
+        return;
+      }
+
+      // Filter registered students belonging to selected Course & Section
+      const registeredList = students.filter(s => s.course === course && s.section === section);
+
+      if (registeredList.length === 0) {
+        showToast(`No registered students found in ${course} - ${section}. Add students in Manage Data tab.`, "warning");
+      }
+
+      // Initialize Live Session Roster with Default Status = "Absent (A)"
+      activeSession = {
+        course,
+        section,
+        date,
+        roster: registeredList.map(s => ({
+          roll: s.roll.toUpperCase(),
+          name: s.name,
+          status: "A", // Default Absent
+          timeScanned: null
+        }))
+      };
+
+      // UI updates
+      document.getElementById('live-session-container').classList.remove('hidden');
+      document.getElementById('btn-start-session').classList.add('hidden');
+      document.getElementById('btn-stop-session').classList.remove('hidden');
+      document.getElementById('btn-stop-session').disabled = false;
+      document.getElementById('btn-stop-session').classList.remove('cursor-not-allowed', 'bg-slate-200');
+      document.getElementById('btn-stop-session').classList.add('bg-red-600', 'hover:bg-red-700', 'text-white');
+
+      document.getElementById('session-status-badge').className = "px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 flex items-center gap-1.5";
+      document.getElementById('session-status-badge').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> Active Session`;
+
+      document.getElementById('live-roster-subtitle').innerText = `${course} | ${section} | Initialized all as Absent (A)`;
+
+      renderLiveRoster();
+      startCameraScanner();
+      showToast("Attendance Session initialized with default status: Absent (A)", "info");
+    }
+
+    function renderLiveRoster() {
+      if (!activeSession) return;
+
+      const tbody = document.getElementById('live-roster-body');
+      tbody.innerHTML = '';
+
+      let presentCount = 0;
+      let absentCount = 0;
+
+      activeSession.roster.forEach((item, index) => {
+        if (item.status === 'P') presentCount++;
+        else absentCount++;
+
+        const isPresent = item.status === 'P';
+        const tr = document.createElement('tr');
+        tr.className = isPresent ? "bg-emerald-50/60 font-medium" : "hover:bg-slate-50";
+
+        tr.innerHTML = `
+          <td class="p-3 font-mono font-bold">${item.roll}</td>
+          <td class="p-3">${item.name}</td>
+          <td class="p-3">
+            <span class="px-2 py-0.5 rounded text-xs font-bold ${isPresent ? 'bg-emerald-600 text-white' : 'bg-red-100 text-red-700 border border-red-200'}">
+              ${isPresent ? 'Present (P)' : 'Absent (A)'}
+            </span>
+          </td>
+          <td class="p-3 text-slate-500 font-mono text-[11px]">${item.timeScanned || '--:--'}</td>
+          <td class="p-3 text-right">
+            <button onclick="toggleStudentSessionStatus(${index})" class="px-2 py-1 bg-slate-200 hover:bg-slate-300 rounded text-slate-700 text-xs transition">
+              Toggle
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('live-present-count').innerText = presentCount;
+      document.getElementById('live-absent-count').innerText = absentCount;
+      document.getElementById('live-total-count').innerText = activeSession.roster.length;
+    }
+
+    function toggleStudentSessionStatus(index) {
+      if (!activeSession || !activeSession.roster[index]) return;
+      const current = activeSession.roster[index].status;
+      if (current === 'A') {
+        activeSession.roster[index].status = 'P';
+        activeSession.roster[index].timeScanned = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        playBeepSound();
+      } else {
+        activeSession.roster[index].status = 'A';
+        activeSession.roster[index].timeScanned = null;
+      }
+      renderLiveRoster();
+    }
+
+    // --- HTML5 QR SCANNER INTEGRATION ---
+    function startCameraScanner() {
+      if (html5QrScanner) {
+        try { html5QrScanner.clear(); } catch(e) {}
+      }
+
+      html5QrScanner = new Html5Qrcode("reader");
+
+      const config = { fps: 10, qrbox: { width: 220, height: 220 } };
+
+      html5QrScanner.start(
+        { facingMode: "environment" },
+        config,
+        onQrCodeScanned,
+        onScanError
+      ).catch(err => {
+        console.warn("Camera start failed, fallback to manual barcode input mode.", err);
+        document.getElementById('scan-feedback-pill').innerText = "Camera unavailable (use manual input below)";
+        document.getElementById('scan-feedback-pill').className = "text-xs bg-amber-900 text-amber-200 px-2 py-0.5 rounded";
+      });
+    }
+
+    function stopAttendanceSession() {
+      if (html5QrScanner) {
+        html5QrScanner.stop().then(() => {
+          html5QrScanner.clear();
+        }).catch(err => console.log(err));
+      }
+
+      document.getElementById('btn-start-session').classList.remove('hidden');
+      document.getElementById('btn-stop-session').classList.add('hidden');
+
+      document.getElementById('session-status-badge').className = "px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 flex items-center gap-1.5";
+      document.getElementById('session-status-badge').innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span> Session Camera Closed`;
+
+      showToast("Camera scanner closed. You can now save session.", "info");
+    }
+
+    function onQrCodeScanned(decodedText) {
+      processScannedData(decodedText);
+    }
+
+    function onScanError(error) {
+      // Ignore routine scan frame drop errors
+    }
+
+    function handleManualScanSubmit() {
+      const input = document.getElementById('manual-scan-input');
+      const val = input.value.trim();
+      if (!val) return;
+      processScannedData(val);
+      input.value = '';
+    }
+
+    function processScannedData(dataString) {
+      if (!activeSession) return;
+
+      let scannedRoll = "";
+
+      // Try parsing JSON payload from QR
+      try {
+        const parsed = JSON.parse(dataString);
+        if (parsed && parsed.roll) {
+          scannedRoll = parsed.roll.toUpperCase();
+        }
+      } catch (e) {
+        // Raw text roll string
+        scannedRoll = dataString.trim().toUpperCase();
+      }
+
+      // Match roll in active roster
+      const studentIndex = activeSession.roster.findIndex(s => s.roll === scannedRoll);
+
+      if (studentIndex >= 0) {
+        const student = activeSession.roster[studentIndex];
+        if (student.status === 'P') {
+          showToast(`Roll ${scannedRoll} already marked PRESENT`, "warning");
+        } else {
+          student.status = 'P';
+          student.timeScanned = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          playBeepSound();
+          showToast(`MATCH CONFIRMED: ${student.name} marked Present!`, "success");
+          renderLiveRoster();
+        }
+      } else {
+        // Check if student exists in database under different course/section
+        const existsInDb = students.find(s => s.roll.toUpperCase() === scannedRoll);
+        if (existsInDb) {
+          showToast(`Student ${scannedRoll} is registered under ${existsInDb.course} - ${existsInDb.section}, not in active session!`, "error");
+        } else {
+          showToast(`Unregistered Student QR: ${scannedRoll}`, "error");
+        }
+      }
+    }
+
+    function saveAttendanceSession() {
+      if (!activeSession) return;
+
+      if (activeSession.roster.length === 0) {
+        showToast("Cannot save empty roster session", "warning");
+        return;
+      }
+
+      // Check if duplicate entry exists for course + section + date
+      const existingIdx = historyLogs.findIndex(log => 
+        log.course === activeSession.course && 
+        log.section === activeSession.section && 
+        log.date === activeSession.date
+      );
+
+      const sessionRecord = {
+        id: 'LOG_' + Date.now(),
+        course: activeSession.course,
+        section: activeSession.section,
+        date: activeSession.date,
+        savedAt: new Date().toLocaleString(),
+        roster: activeSession.roster
+      };
+
+      if (existingIdx >= 0) {
+        historyLogs[existingIdx] = sessionRecord;
+        showToast(`Updated existing attendance record for ${activeSession.course} (${activeSession.date})`, "info");
+      } else {
+        historyLogs.unshift(sessionRecord);
+        showToast("Attendance Session successfully saved to Database!", "success");
+      }
+
+      saveAllToLocalStorage();
+      stopAttendanceSession();
+
+      // Reset state UI
+      document.getElementById('live-session-container').classList.add('hidden');
+      activeSession = null;
+      switchTab('admin-history');
+    }
+
+    // --- MANAGE DATA TAB ---
+    function handleAddCourse(e) {
+      e.preventDefault();
+      const input = document.getElementById('new-course-name');
+      const val = input.value.trim();
+      if (val && !courses.includes(val)) {
+        courses.push(val);
+        saveAllToLocalStorage();
+        populateDropdowns();
+        input.value = '';
+        showToast(`Course "${val}" added`, "success");
+      }
+    }
+
+    function handleAddSection(e) {
+      e.preventDefault();
+      const input = document.getElementById('new-section-name');
+      const val = input.value.trim();
+      if (val && !sections.includes(val)) {
+        sections.push(val);
+        saveAllToLocalStorage();
+        populateDropdowns();
+        input.value = '';
+        showToast(`Section "${val}" added`, "success");
+      }
+    }
+
+    function renderManageStudentTable() {
+      const tbody = document.getElementById('manage-student-table-body');
+      const search = (document.getElementById('manage-search')?.value || '').toLowerCase();
+
+      tbody.innerHTML = '';
+
+      const filtered = students.filter(s => 
+        s.roll.toLowerCase().includes(search) || 
+        s.name.toLowerCase().includes(search) ||
+        s.course.toLowerCase().includes(search)
+      );
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center p-6 text-slate-400">No students registered yet.</td></tr>`;
+        return;
+      }
+
+      filtered.forEach((student, index) => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50";
+        tr.innerHTML = `
+          <td class="p-3 font-mono font-bold">${student.roll}</td>
+          <td class="p-3">${student.name}</td>
+          <td class="p-3"><span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[11px]">${student.course}</span></td>
+          <td class="p-3"><span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px]">${student.section}</span></td>
+          <td class="p-3 text-right">
+            <button onclick="deleteStudent('${student.roll}')" class="text-red-500 hover:text-red-700 font-medium text-xs">
+              <i class="fa-solid fa-trash"></i> Delete
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function deleteStudent(roll) {
+      if (confirm(`Remove student ${roll} permanently?`)) {
+        students = students.filter(s => s.roll.toUpperCase() !== roll.toUpperCase());
+        saveAllToLocalStorage();
+        renderManageStudentTable();
+        showToast("Student deleted", "info");
+      }
+    }
+
+    // --- ATTENDANCE HISTORY & EXCEL EXPORT ---
+    function renderHistoryLogs() {
+      const container = document.getElementById('history-logs-container');
+      const filterCourse = document.getElementById('history-filter-course').value;
+      const filterSec = document.getElementById('history-filter-section').value;
+      const filterDate = document.getElementById('history-filter-date').value;
+
+      container.innerHTML = '';
+
+      let filteredLogs = historyLogs.filter(log => {
+        if (filterCourse !== 'ALL' && log.course !== filterCourse) return false;
+        if (filterSec !== 'ALL' && log.section !== filterSec) return false;
+        if (filterDate && log.date !== filterDate) return false;
+        return true;
+      });
+
+      // Calculate totals for dashboard
+      let totalPresents = 0;
+      let totalAbsents = 0;
+
+      filteredLogs.forEach(log => {
+        log.roster.forEach(r => {
+          if (r.status === 'P') totalPresents++;
+          else totalAbsents++;
+        });
+      });
+
+      const grandTotal = totalPresents + totalAbsents;
+      const avgRate = grandTotal > 0 ? Math.round((totalPresents / grandTotal) * 100) : 0;
+
+      document.getElementById('summary-total-sessions').innerText = filteredLogs.length;
+      document.getElementById('summary-total-present').innerText = totalPresents;
+      document.getElementById('summary-total-absent').innerText = totalAbsents;
+      document.getElementById('summary-avg-rate').innerText = `${avgRate}%`;
+
+      if (filteredLogs.length === 0) {
+        container.innerHTML = `
+          <div class="bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-8 text-center text-slate-400 text-xs">
+            No saved attendance records match selected filters.
+          </div>`;
+        return;
+      }
+
+      filteredLogs.forEach((log) => {
+        const presentCnt = log.roster.filter(r => r.status === 'P').length;
+        const absentCnt = log.roster.filter(r => r.status === 'A').length;
+        const pct = log.roster.length > 0 ? Math.round((presentCnt / log.roster.length) * 100) : 0;
+
+        const card = document.createElement('div');
+        card.className = "bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition";
+
+        card.innerHTML = `
+          <div class="p-4 bg-slate-50 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-800 text-sm">${log.course}</span>
+                <span class="bg-indigo-100 text-indigo-800 text-[10px] font-bold px-2 py-0.5 rounded">${log.section}</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5">Date: <b class="text-slate-700">${log.date}</b> | Saved At: ${log.savedAt}</p>
+            </div>
+            
+            <div class="flex items-center gap-3">
+              <div class="text-right">
+                <span class="text-xs font-bold text-emerald-600">${presentCnt} Present</span> / 
+                <span class="text-xs font-bold text-red-600">${absentCnt} Absent</span>
+                <span class="block text-[10px] text-slate-400">Rate: ${pct}%</span>
+              </div>
+              <button onclick="toggleLogDetails('${log.id}')" class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium">
+                View/Edit
+              </button>
+              <button onclick="deleteHistoryLog('${log.id}')" class="text-slate-400 hover:text-red-600 p-1">
+                <i class="fa-solid fa-trash text-xs"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Collapsible Roster Log Details -->
+          <div id="details-${log.id}" class="hidden p-4 border-t border-slate-100 bg-white">
+            <div class="overflow-x-auto max-h-60 custom-scrollbar">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50 text-slate-500 uppercase font-semibold">
+                  <tr>
+                    <th class="p-2">Roll No</th>
+                    <th class="p-2">Name</th>
+                    <th class="p-2">Status</th>
+                    <th class="p-2">Scan Time</th>
+                    <th class="p-2 text-right">Edit Status</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  ${log.roster.map((r, rIdx) => `
+                    <tr>
+                      <td class="p-2 font-mono font-bold">${r.roll}</td>
+                      <td class="p-2">${r.name}</td>
+                      <td class="p-2">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${r.status === 'P' ? 'bg-emerald-600 text-white' : 'bg-red-100 text-red-700'}">
+                          ${r.status === 'P' ? 'Present' : 'Absent'}
+                        </span>
+                      </td>
+                      <td class="p-2 text-slate-400 font-mono text-[10px]">${r.timeScanned || '--'}</td>
+                      <td class="p-2 text-right">
+                        <button onclick="updateHistoricalStatus('${log.id}', ${rIdx})" class="text-indigo-600 hover:text-indigo-800 underline text-[11px]">
+                          Change to ${r.status === 'P' ? 'Absent' : 'Present'}
+                        </button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+    }
+
+    function toggleLogDetails(id) {
+      const el = document.getElementById(`details-${id}`);
+      if (el) el.classList.toggle('hidden');
+    }
+
+    function updateHistoricalStatus(logId, rosterIdx) {
+      const log = historyLogs.find(l => l.id === logId);
+      if (log && log.roster[rosterIdx]) {
+        const item = log.roster[rosterIdx];
+        item.status = item.status === 'P' ? 'A' : 'P';
+        if (item.status === 'P') {
+          item.timeScanned = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } else {
+          item.timeScanned = null;
+        }
+        saveAllToLocalStorage();
+        renderHistoryLogs();
+        showToast(`Updated attendance status for ${item.roll}`, "info");
+      }
+    }
+
+    function deleteHistoryLog(id) {
+      if (confirm("Delete this saved attendance session log?")) {
+        historyLogs = historyLogs.filter(l => l.id !== id);
+        saveAllToLocalStorage();
+        renderHistoryLogs();
+        showToast("Log deleted", "info");
+      }
+    }
+
+    function resetHistoryFilters() {
+      document.getElementById('history-filter-course').value = 'ALL';
+      document.getElementById('history-filter-section').value = 'ALL';
+      document.getElementById('history-filter-date').value = '';
+      renderHistoryLogs();
+    }
+
+    // --- EXCEL EXPORT USING SHEETJS ---
+    function exportToExcel() {
+      if (historyLogs.length === 0) {
+        showToast("No attendance logs available to export!", "warning");
+        return;
+      }
+
+      // Flatten data into clean table format for Excel
+      const excelData = [];
+
+      historyLogs.forEach(log => {
+        log.roster.forEach(st => {
+          excelData.push({
+            "Course": log.course,
+            "Section": log.section,
+            "Date": log.date,
+            "Roll Number": st.roll,
+            "Student Name": st.name,
+            "Attendance Status": st.status === 'P' ? 'PRESENT' : 'ABSENT',
+            "Scan Time": st.timeScanned || 'N/A',
+            "Saved Timestamp": log.savedAt
+          });
+        });
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance_Report");
+
+      // Auto-fit column width approximation
+      const max_width = excelData.reduce((w, r) => Math.max(w, r["Student Name"].length), 10);
+      worksheet["!cols"] = [ { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: max_width + 5 }, { wch: 12 }, { wch: 12 }, { wch: 20 } ];
+
+      // Trigger download filename with current date
+      const dateStr = new Date().toISOString().split('T')[0];
+      XLSX.writeFile(workbook, `Attendance_Report_${dateStr}.xlsx`);
+      showToast("Excel spreadsheet generated & downloaded!", "success");
+    }
+
+    // --- AUDIO & TOAST HELPERS ---
+    function playBeepSound() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // High chime sound
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.15);
+      } catch (e) {
+        console.log("Audio play blocked or unsupported.");
+      }
+    }
+
+    function testAudioBeep() {
+      playBeepSound();
+      showToast("Testing Beep Sound Effect", "info");
+    }
+
+    function showToast(message, type = "info") {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+
+      const colors = {
+        success: 'bg-emerald-800 text-emerald-100 border-emerald-600',
+        error: 'bg-red-800 text-red-100 border-red-600',
+        warning: 'bg-amber-800 text-amber-100 border-amber-600',
+        info: 'bg-indigo-800 text-indigo-100 border-indigo-600'
+      };
+
+      const icons = {
+        success: 'fa-circle-check',
+        error: 'fa-circle-xmark',
+        warning: 'fa-triangle-exclamation',
+        info: 'fa-circle-info'
+      };
+
+      toast.className = `pointer-events-auto flex items-center gap-2 px-4 py-3 rounded-xl border text-xs font-semibold shadow-xl transition-all transform duration-300 translate-y-2 opacity-0 ${colors[type] || colors.info}`;
+      toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info} text-base"></i> <span>${message}</span>`;
+
+      container.appendChild(toast);
+
+      // Trigger enter animation
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 10);
+
+      // Dismiss after 3.5s
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+  </script>
+</body>
+</html>
